@@ -62,7 +62,7 @@ void ti990_10_device::device_start()
 	m_cru = &space(AS_IO);
 
 	// set our instruction counter
-	m_icountptr = &m_icount;
+	set_icountptr(m_icount);
 
 	state_add(STATE_GENPC, "GENPC", PC).formatstr("%4s").noshow();
 	state_add(STATE_GENPCBASE, "CURPC", PC).formatstr("%4s").noshow();
@@ -107,26 +107,26 @@ void ti990_10_device::execute_set_input(int irqline, int state)
 
 // ==========================================================================
 
-uint32_t ti990_10_device::execute_min_cycles() const
+uint32_t ti990_10_device::execute_min_cycles() const noexcept
 {
 	return 2;
 }
 
 // TODO: Compute this value, just a wild guess for the average
-uint32_t ti990_10_device::execute_max_cycles() const
+uint32_t ti990_10_device::execute_max_cycles() const noexcept
 {
 	return 10;
 }
 
-uint32_t ti990_10_device::execute_input_lines() const
+uint32_t ti990_10_device::execute_input_lines() const noexcept
 {
 	return 2;
 }
 
 // TODO: check 9900dasm
-util::disasm_interface *ti990_10_device::create_disassembler()
+std::unique_ptr<util::disasm_interface> ti990_10_device::create_disassembler()
 {
-	return new tms9900_disassembler(TMS9900_ID);
+	return std::make_unique<tms9900_disassembler>(TMS9900_ID);
 }
 
-DEFINE_DEVICE_TYPE(TI990_10, ti990_10_device, "ti990_10_cpu", "TI990/10 CPU")
+DEFINE_DEVICE_TYPE(TI990_10, ti990_10_device, "ti990_10_cpu", "Texas Instruments TI990/10 CPU")

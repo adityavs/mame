@@ -17,6 +17,7 @@
 #include "machine/steppers.h"
 #include "machine/roc10937.h"
 #include "machine/meters.h"
+#include "emupal.h"
 
 class jpmsys5_state : public driver_device
 {
@@ -25,8 +26,8 @@ public:
 		driver_device(mconfig, type, tag),
 		m_maincpu(*this, "maincpu"),
 		m_acia6850(*this, "acia6850_%u", 0U),
-		m_upd7759(*this, "upd7759"),
 		m_vfd(*this, "vfd"),
+		m_upd7759(*this, "upd7759"),
 		m_direct_port(*this, "DIRECT"),
 		m_meters(*this, "meters"),
 		m_lamps(*this, "lamp%u", 0U),
@@ -36,42 +37,46 @@ public:
 	void jpmsys5(machine_config &config);
 	void jpmsys5_ym(machine_config &config);
 
+	DECLARE_WRITE_LINE_MEMBER(ptm_irq);
+	DECLARE_WRITE_LINE_MEMBER(u26_o1_callback);
+	DECLARE_WRITE_LINE_MEMBER(pia_irq);
+	DECLARE_WRITE_LINE_MEMBER(u29_ca2_w);
+	DECLARE_WRITE_LINE_MEMBER(u29_cb2_w);
+	DECLARE_WRITE_LINE_MEMBER(a0_tx_w);
+	DECLARE_WRITE_LINE_MEMBER(a1_tx_w);
+	DECLARE_WRITE_LINE_MEMBER(a2_tx_w);
+
+	uint8_t u29_porta_r();
+	void u29_portb_w(uint8_t data);
+
 protected:
 	virtual void machine_start() override;
 	virtual void machine_reset() override;
 
-	DECLARE_READ16_MEMBER(coins_r);
-	DECLARE_WRITE16_MEMBER(coins_w);
-	DECLARE_READ16_MEMBER(unk_r);
-	DECLARE_WRITE16_MEMBER(mux_w);
-	DECLARE_READ16_MEMBER(mux_r);
-	DECLARE_WRITE16_MEMBER(jpm_upd7759_w);
-	DECLARE_READ16_MEMBER(jpm_upd7759_r);
-	DECLARE_WRITE_LINE_MEMBER(ptm_irq);
-	DECLARE_WRITE_LINE_MEMBER(u26_o1_callback);
-	DECLARE_WRITE_LINE_MEMBER(pia_irq);
-	DECLARE_READ8_MEMBER(u29_porta_r);
-	DECLARE_WRITE8_MEMBER(u29_portb_w);
-	DECLARE_WRITE_LINE_MEMBER(u29_ca2_w);
-	DECLARE_WRITE_LINE_MEMBER(u29_cb2_w);
-	DECLARE_WRITE_LINE_MEMBER(acia_irq);
-	DECLARE_WRITE_LINE_MEMBER(a0_tx_w);
-	DECLARE_WRITE_LINE_MEMBER(a1_tx_w);
-	DECLARE_WRITE_LINE_MEMBER(a2_tx_w);
-	DECLARE_READ16_MEMBER(mux_awp_r);
-	DECLARE_READ16_MEMBER(coins_awp_r);
-	void sys5_draw_lamps();
-
-	void jpm_sys5_common_map(address_map &map);
-	void m68000_awp_map(address_map &map);
-	void m68000_awp_map_saa(address_map &map);
+	void jpm_upd7759_w(offs_t offset, uint16_t data);
+	uint16_t jpm_upd7759_r();
 
 	required_device<cpu_device> m_maincpu;
 	required_device_array<acia6850_device, 3> m_acia6850;
+	optional_device<s16lf01_device> m_vfd;
+	required_device<upd7759_device> m_upd7759;
+
+	void jpm_sys5_common_map(address_map &map);
 
 private:
-	required_device<upd7759_device> m_upd7759;
-	optional_device<s16lf01_device> m_vfd;
+	uint16_t coins_r(offs_t offset);
+	void coins_w(uint16_t data);
+	uint16_t unk_r();
+	void mux_w(offs_t offset, uint16_t data);
+	uint16_t mux_r(offs_t offset);
+
+	uint16_t mux_awp_r(offs_t offset);
+	uint16_t coins_awp_r(offs_t offset);
+	void sys5_draw_lamps();
+
+	void m68000_awp_map(address_map &map);
+	void m68000_awp_map_saa(address_map &map);
+
 	required_ioport m_direct_port;
 	optional_device<meters_device> m_meters; //jpmsys5v doesn't use this
 	output_finder<16 * 16> m_lamps;
@@ -103,21 +108,20 @@ public:
 
 	void jpmsys5v(machine_config &config);
 
-protected:
+private:
 	virtual void machine_start() override;
 	virtual void machine_reset() override;
 
 	DECLARE_WRITE_LINE_MEMBER(generate_tms34061_interrupt);
-	DECLARE_WRITE16_MEMBER(sys5_tms34061_w);
-	DECLARE_READ16_MEMBER(sys5_tms34061_r);
-	DECLARE_WRITE16_MEMBER(ramdac_w);
-	DECLARE_WRITE16_MEMBER(rombank_w);
+	void sys5_tms34061_w(offs_t offset, uint16_t data, uint16_t mem_mask = ~0);
+	uint16_t sys5_tms34061_r(offs_t offset, uint16_t mem_mask = ~0);
+	void ramdac_w(offs_t offset, uint16_t data);
+	void rombank_w(uint16_t data);
 	uint32_t screen_update_jpmsys5v(screen_device &screen, bitmap_rgb32 &bitmap, const rectangle &cliprect);
 	TIMER_CALLBACK_MEMBER(touch_cb);
 
 	void m68000_map(address_map &map);
 
-private:
 	required_device<tms34061_device> m_tms34061;
 	required_device<palette_device> m_palette;
 	required_memory_bank m_rombank;

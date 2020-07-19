@@ -32,8 +32,8 @@ TODO:
 class photoply_state : public pcat_base_state
 {
 public:
-	photoply_state(const machine_config &mconfig, device_type type, const char *tag)
-		: pcat_base_state(mconfig, type, tag),
+	photoply_state(const machine_config &mconfig, device_type type, const char *tag) :
+		pcat_base_state(mconfig, type, tag),
 		m_eeprom(*this, "eeprom"),
 		m_main_bios(*this, "bios"),
 		m_video_bios(*this, "video_bios"),
@@ -41,6 +41,9 @@ public:
 	{
 	}
 
+	void photoply(machine_config &config);
+
+private:
 	required_device<eeprom_serial_93cxx_device> m_eeprom;
 
 	required_region_ptr<uint8_t> m_main_bios;
@@ -49,16 +52,15 @@ public:
 
 	uint8_t *m_shadow_ram;
 
-	DECLARE_READ8_MEMBER(bios_r);
-	DECLARE_WRITE8_MEMBER(bios_w);
-	DECLARE_WRITE8_MEMBER(eeprom_w);
+	uint8_t bios_r(offs_t offset);
+	void bios_w(offs_t offset, uint8_t data);
+	void eeprom_w(uint8_t data);
 
 	uint16_t m_pci_shadow_reg;
-	void photoply(machine_config &config);
 
 	void photoply_io(address_map &map);
 	void photoply_map(address_map &map);
-protected:
+
 	virtual void machine_start() override;
 	virtual void machine_reset() override;
 
@@ -131,7 +133,7 @@ void photoply_state::sis_pcm_w(int function, int reg, uint32_t data, uint32_t me
 	}
 }
 
-READ8_MEMBER(photoply_state::bios_r)
+uint8_t photoply_state::bios_r(offs_t offset)
 {
 	uint8_t bit_mask = (offset & 0x38000) >> 15;
 
@@ -166,7 +168,7 @@ READ8_MEMBER(photoply_state::bios_r)
 	return m_main_bios[offset & 0x1ffff];
 }
 
-WRITE8_MEMBER(photoply_state::bios_w)
+void photoply_state::bios_w(offs_t offset, uint8_t data)
 {
 //  return m_bios[offset];
 
@@ -179,7 +181,7 @@ WRITE8_MEMBER(photoply_state::bios_w)
 	}
 }
 
-WRITE8_MEMBER(photoply_state::eeprom_w)
+void photoply_state::eeprom_w(uint8_t data)
 {
 	//logerror("Writing %X to EEPROM output port\n", data);
 	m_eeprom->di_write(BIT(data, 0));
@@ -190,37 +192,39 @@ WRITE8_MEMBER(photoply_state::eeprom_w)
 	// Bits 4-7 are set for some writes, but may do nothing?
 }
 
-ADDRESS_MAP_START(photoply_state::photoply_map)
-	AM_RANGE(0x00000000, 0x0009ffff) AM_RAM
-	AM_RANGE(0x000a0000, 0x000bffff) AM_DEVREADWRITE8("vga", cirrus_gd5446_device, mem_r, mem_w, 0xffffffff)
-//  AM_RANGE(0x000c0000, 0x000c7fff) AM_RAM AM_REGION("video_bios", 0)
-//  AM_RANGE(0x000c8000, 0x000cffff) AM_RAM AM_REGION("ex_bios", 0)
-	AM_RANGE(0x000c0000, 0x000fffff) AM_READWRITE8(bios_r,bios_w,0xffffffff)
-	AM_RANGE(0x00100000, 0x07ffffff) AM_RAM // 64MB RAM, guess!
-	AM_RANGE(0xfffe0000, 0xffffffff) AM_ROM AM_REGION("bios", 0)
-ADDRESS_MAP_END
+void photoply_state::photoply_map(address_map &map)
+{
+	map(0x00000000, 0x0009ffff).ram();
+	map(0x000a0000, 0x000bffff).rw("vga", FUNC(cirrus_gd5446_device::mem_r), FUNC(cirrus_gd5446_device::mem_w));
+//  map(0x000c0000, 0x000c7fff).rom().region("video_bios", 0);
+//  map(0x000c8000, 0x000cffff).rom().region("ex_bios", 0);
+	map(0x000c0000, 0x000fffff).rw(FUNC(photoply_state::bios_r), FUNC(photoply_state::bios_w));
+	map(0x00100000, 0x07ffffff).ram(); // 64MB RAM, guess!
+	map(0xfffe0000, 0xffffffff).lr8([this] (offs_t offset) { return m_main_bios[offset]; }, "bios_upper_r");
+}
 
 
 
-ADDRESS_MAP_START(photoply_state::photoply_io)
-	AM_IMPORT_FROM(pcat32_io_common)
-	AM_RANGE(0x00e8, 0x00eb) AM_NOP
+void photoply_state::photoply_io(address_map &map)
+{
+	pcat32_io_common(map);
+	map(0x00e8, 0x00eb).noprw();
 
-	AM_RANGE(0x0170, 0x0177) AM_DEVREADWRITE("ide2", ide_controller_32_device, read_cs0, write_cs0)
-	AM_RANGE(0x01f0, 0x01f7) AM_DEVREADWRITE("ide", ide_controller_32_device, read_cs0, write_cs0)
-	AM_RANGE(0x0200, 0x0203) AM_WRITE8(eeprom_w, 0x00ff0000)
-//  AM_RANGE(0x0278, 0x027f) AM_RAM //parallel port 2
-	AM_RANGE(0x0370, 0x0377) AM_DEVREADWRITE("ide2", ide_controller_32_device, read_cs1, write_cs1)
-//  AM_RANGE(0x0378, 0x037f) AM_RAM //parallel port
-	AM_RANGE(0x03b0, 0x03bf) AM_DEVREADWRITE8("vga", cirrus_gd5446_device, port_03b0_r, port_03b0_w, 0xffffffff)
-	AM_RANGE(0x03c0, 0x03cf) AM_DEVREADWRITE8("vga", cirrus_gd5446_device, port_03c0_r, port_03c0_w, 0xffffffff)
-	AM_RANGE(0x03d0, 0x03df) AM_DEVREADWRITE8("vga", cirrus_gd5446_device, port_03d0_r, port_03d0_w, 0xffffffff)
+	map(0x0170, 0x0177).rw("ide2", FUNC(ide_controller_32_device::cs0_r), FUNC(ide_controller_32_device::cs0_w));
+	map(0x01f0, 0x01f7).rw("ide", FUNC(ide_controller_32_device::cs0_r), FUNC(ide_controller_32_device::cs0_w));
+	map(0x0202, 0x0202).w(FUNC(photoply_state::eeprom_w));
+//  map(0x0278, 0x027f).ram(); //parallel port 2
+	map(0x0370, 0x0377).rw("ide2", FUNC(ide_controller_32_device::cs1_r), FUNC(ide_controller_32_device::cs1_w));
+//  map(0x0378, 0x037f).ram(); //parallel port
+	map(0x03b0, 0x03bf).rw("vga", FUNC(cirrus_gd5446_device::port_03b0_r), FUNC(cirrus_gd5446_device::port_03b0_w));
+	map(0x03c0, 0x03cf).rw("vga", FUNC(cirrus_gd5446_device::port_03c0_r), FUNC(cirrus_gd5446_device::port_03c0_w));
+	map(0x03d0, 0x03df).rw("vga", FUNC(cirrus_gd5446_device::port_03d0_r), FUNC(cirrus_gd5446_device::port_03d0_w));
 
-	AM_RANGE(0x03f0, 0x03f7) AM_DEVREADWRITE("ide", ide_controller_32_device, read_cs1, write_cs1)
+	map(0x03f0, 0x03f7).rw("ide", FUNC(ide_controller_32_device::cs1_r), FUNC(ide_controller_32_device::cs1_w));
 
-	AM_RANGE(0x0cf8, 0x0cff) AM_DEVREADWRITE("pcibus", pci_bus_legacy_device, read, write)
+	map(0x0cf8, 0x0cff).rw("pcibus", FUNC(pci_bus_legacy_device::read), FUNC(pci_bus_legacy_device::write));
 
-ADDRESS_MAP_END
+}
 
 #define AT_KEYB_HELPER(bit, text, key1) \
 	PORT_BIT( bit, IP_ACTIVE_HIGH, IPT_KEYPAD) PORT_NAME(text) PORT_CODE(key1)
@@ -291,42 +295,42 @@ static const gfx_layout CGA_charlayout =
 	8*8
 };
 
-static GFXDECODE_START( photoply )
+static GFXDECODE_START( gfx_photoply )
 	GFXDECODE_ENTRY( "video_bios", 0x6000+0xa5*8+7, CGA_charlayout,              0, 256 )
 	//there's also a 8x16 entry (just after the 8x8)
 GFXDECODE_END
 
-MACHINE_CONFIG_START(photoply_state::photoply)
+void photoply_state::photoply(machine_config &config)
+{
 	/* basic machine hardware */
-	MCFG_CPU_ADD("maincpu", I486DX4, 75000000) /* I486DX4, 75 or 100 Mhz */
-	MCFG_CPU_PROGRAM_MAP(photoply_map)
-	MCFG_CPU_IO_MAP(photoply_io)
-	MCFG_CPU_IRQ_ACKNOWLEDGE_DEVICE("pic8259_1", pic8259_device, inta_cb)
+	I486DX4(config, m_maincpu, 75000000); /* I486DX4, 75 or 100 Mhz */
+	m_maincpu->set_addrmap(AS_PROGRAM, &photoply_state::photoply_map);
+	m_maincpu->set_addrmap(AS_IO, &photoply_state::photoply_io);
+	m_maincpu->set_irq_acknowledge_callback("pic8259_1", FUNC(pic8259_device::inta_cb));
 
 	pcat_common(config);
 
-	MCFG_GFXDECODE_ADD("gfxdecode", "vga", photoply )
+	GFXDECODE(config, "gfxdecode", "vga", gfx_photoply);
 
-	MCFG_IDE_CONTROLLER_32_ADD("ide", ata_devices, "hdd", nullptr, true)
-	MCFG_ATA_INTERFACE_IRQ_HANDLER(DEVWRITELINE("pic8259_2", pic8259_device, ir6_w))
+	ide_controller_32_device &ide(IDE_CONTROLLER_32(config, "ide").options(ata_devices, "hdd", nullptr, true));
+	ide.irq_handler().set("pic8259_2", FUNC(pic8259_device::ir6_w));
 
-	MCFG_IDE_CONTROLLER_32_ADD("ide2", ata_devices, nullptr, nullptr, true)
-	MCFG_ATA_INTERFACE_IRQ_HANDLER(DEVWRITELINE("pic8259_2", pic8259_device, ir7_w))
+	ide_controller_32_device &ide2(IDE_CONTROLLER_32(config, "ide2").options(ata_devices, nullptr, nullptr, true));
+	ide2.irq_handler().set("pic8259_2", FUNC(pic8259_device::ir7_w));
 
-	MCFG_PCI_BUS_LEGACY_ADD("pcibus", 0)
-	MCFG_PCI_BUS_LEGACY_DEVICE(5, DEVICE_SELF, photoply_state, sis_pcm_r, sis_pcm_w)
+	pci_bus_legacy_device &pcibus(PCI_BUS_LEGACY(config, "pcibus", 0, 0));
+	pcibus.set_device(5, FUNC(photoply_state::sis_pcm_r), FUNC(photoply_state::sis_pcm_w));
 
-	MCFG_SCREEN_ADD("screen", RASTER)
-	MCFG_SCREEN_RAW_PARAMS(XTAL(25'174'800),900,0,640,526,0,480)
-	MCFG_SCREEN_UPDATE_DEVICE("vga", cirrus_gd5446_device, screen_update)
+	screen_device &screen(SCREEN(config, "screen", SCREEN_TYPE_RASTER));
+	screen.set_raw(XTAL(25'174'800),900,0,640,526,0,480);
+	screen.set_screen_update("vga", FUNC(cirrus_gd5446_device::screen_update));
 
-	MCFG_DEVICE_ADD("vga", CIRRUS_GD5446, 0)
-	MCFG_VIDEO_SET_SCREEN("screen")
+	CIRRUS_GD5446(config, "vga", 0).set_screen("screen");
 
-	MCFG_EEPROM_SERIAL_93C46_ADD("eeprom")
-	MCFG_EEPROM_WRITE_TIME(attotime::from_usec(1))
-	MCFG_EEPROM_ERASE_ALL_TIME(attotime::from_usec(10))
-MACHINE_CONFIG_END
+	EEPROM_93C46_16BIT(config, "eeprom")
+		.write_time(attotime::from_usec(1))
+		.erase_all_time(attotime::from_usec(10));
+}
 
 
 ROM_START(photoply)
@@ -366,5 +370,6 @@ ROM_START(photoply2k4)
 ROM_END
 
 
-GAME( 199?, photoply,     0,  photoply, photoply, photoply_state, 0, ROT0, "Funworld", "Photo Play 2000 (v2.01)", MACHINE_NOT_WORKING|MACHINE_NO_SOUND|MACHINE_UNEMULATED_PROTECTION )
-GAME( 2004, photoply2k4,  0,  photoply, photoply, photoply_state, 0, ROT0, "Funworld", "Photo Play 2004", MACHINE_NOT_WORKING|MACHINE_NO_SOUND|MACHINE_UNEMULATED_PROTECTION )
+GAME( 199?, photoply,     0,  photoply, photoply, photoply_state, empty_init, ROT0, "Funworld", "Photo Play 2000 (v2.01)", MACHINE_NOT_WORKING|MACHINE_NO_SOUND|MACHINE_UNEMULATED_PROTECTION )
+GAME( 2004, photoply2k4,  0,  photoply, photoply, photoply_state, empty_init, ROT0, "Funworld", "Photo Play 2004", MACHINE_NOT_WORKING|MACHINE_NO_SOUND|MACHINE_UNEMULATED_PROTECTION )
+

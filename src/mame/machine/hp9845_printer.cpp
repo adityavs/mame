@@ -137,10 +137,11 @@ const tiny_rom_entry *hp9845_printer_device::device_rom_region() const
 	return ROM_NAME(hp9845_printer);
 }
 
-MACHINE_CONFIG_START(hp9845_printer_device::device_add_mconfig)
-	MCFG_DEVICE_ADD("prt_alpha", BITBANGER, 0)
-	MCFG_DEVICE_ADD("prt_graphic", BITBANGER, 0)
-MACHINE_CONFIG_END
+void hp9845_printer_device::device_add_mconfig(machine_config &config)
+{
+	BITBANGER(config, m_prt_alpha_out, 0);
+	BITBANGER(config, m_prt_graph_out, 0);
+}
 
 void hp9845_printer_device::device_start()
 {
@@ -192,7 +193,7 @@ void hp9845_printer_device::device_timer(emu_timer &timer, device_timer_id id, i
 	update_flg();
 }
 
-READ16_MEMBER(hp9845_printer_device::printer_r)
+uint16_t hp9845_printer_device::printer_r(offs_t offset)
 {
 	uint16_t res = 0;
 
@@ -220,7 +221,7 @@ READ16_MEMBER(hp9845_printer_device::printer_r)
 	return res;
 }
 
-WRITE16_MEMBER(hp9845_printer_device::printer_w)
+void hp9845_printer_device::printer_w(offs_t offset, uint16_t data)
 {
 	switch (offset) {
 	case 0:

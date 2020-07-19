@@ -10,6 +10,9 @@
 
 #pragma once
 
+#include "emupal.h"
+#include "tilemap.h"
+
 class ohmygod_state : public driver_device
 {
 public:
@@ -22,16 +25,17 @@ public:
 		m_palette(*this, "palette")
 	{ }
 
-	DECLARE_DRIVER_INIT(ohmygod);
-	DECLARE_DRIVER_INIT(naname);
 	void ohmygod(machine_config &config);
 
-protected:
-	DECLARE_WRITE16_MEMBER(ohmygod_ctrl_w);
-	DECLARE_WRITE16_MEMBER(ohmygod_videoram_w);
-	DECLARE_WRITE16_MEMBER(ohmygod_spritebank_w);
-	DECLARE_WRITE16_MEMBER(ohmygod_scrollx_w);
-	DECLARE_WRITE16_MEMBER(ohmygod_scrolly_w);
+	void init_ohmygod();
+	void init_naname();
+
+private:
+	void ohmygod_ctrl_w(offs_t offset, uint16_t data, uint16_t mem_mask = ~0);
+	void ohmygod_videoram_w(offs_t offset, uint16_t data, uint16_t mem_mask = ~0);
+	void ohmygod_spritebank_w(offs_t offset, uint16_t data, uint16_t mem_mask = ~0);
+	void ohmygod_scrollx_w(offs_t offset, uint16_t data, uint16_t mem_mask = ~0);
+	void ohmygod_scrolly_w(offs_t offset, uint16_t data, uint16_t mem_mask = ~0);
 	TILE_GET_INFO_MEMBER(get_tile_info);
 	virtual void machine_start() override;
 	virtual void machine_reset() override;
@@ -41,7 +45,6 @@ protected:
 	void ohmygod_map(address_map &map);
 	void oki_map(address_map &map);
 
-private:
 	/* memory pointers */
 	required_shared_ptr<uint16_t> m_videoram;
 	required_shared_ptr<uint16_t> m_spriteram;

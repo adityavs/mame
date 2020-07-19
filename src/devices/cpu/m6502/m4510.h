@@ -19,7 +19,7 @@ class m4510_device : public m65ce02_device {
 public:
 	m4510_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
 
-	virtual util::disasm_interface *create_disassembler() override;
+	virtual std::unique_ptr<util::disasm_interface> create_disassembler() override;
 
 	virtual void do_exec_full() override;
 	virtual void do_exec_partial() override;
@@ -31,24 +31,16 @@ protected:
 	uint8_t map_enable;
 	bool nomap;
 
-	class mi_4510_normal : public memory_interface {
+	class mi_4510 : public memory_interface {
 	public:
 		m4510_device *base;
 
-		mi_4510_normal(m4510_device *base);
-		virtual ~mi_4510_normal() {}
+		mi_4510(m4510_device *base);
+		virtual ~mi_4510() {}
 		virtual uint8_t read(uint16_t adr) override;
 		virtual uint8_t read_sync(uint16_t adr) override;
 		virtual uint8_t read_arg(uint16_t adr) override;
 		virtual void write(uint16_t adr, uint8_t val) override;
-	};
-
-	class mi_4510_nd : public mi_4510_normal {
-	public:
-		mi_4510_nd(m4510_device *base);
-		virtual ~mi_4510_nd() {}
-		virtual uint8_t read_sync(uint16_t adr) override;
-		virtual uint8_t read_arg(uint16_t adr) override;
 	};
 
 	virtual void device_start() override;

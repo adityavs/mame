@@ -24,7 +24,7 @@ public:
 	void set_scramble(bool scr);
 
 protected:
-	class mi_decrypt : public mi_default_normal {
+	class mi_decrypt : public mi_default {
 	public:
 
 		bool m_scramble_en = false;
@@ -50,7 +50,7 @@ protected:
 
 	virtual void device_reset() override;
 	virtual void device_start() override;
-	virtual util::disasm_interface *create_disassembler() override;
+	virtual std::unique_ptr<util::disasm_interface> create_disassembler() override;
 };
 
 DECLARE_DEVICE_TYPE(M6502_VTSCR, m6502_vtscr)

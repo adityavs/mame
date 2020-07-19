@@ -19,15 +19,6 @@
 
 
 //**************************************************************************
-//  INTERFACE CONFIGURATION MACROS
-//**************************************************************************
-
-#define MCFG_VIDEO_SET_SCREEN(_tag) \
-	dynamic_cast<device_video_interface &>(*device).set_screen(_tag);
-
-
-
-//**************************************************************************
 //  TYPE DEFINITIONS
 //**************************************************************************
 
@@ -43,7 +34,18 @@ public:
 	virtual ~device_video_interface();
 
 	// configuration
-	void set_screen(const char *tag) { m_screen_tag = tag; }
+	void set_screen(const char *tag);
+	void set_screen(device_t &base, const char *tag)
+	{
+		m_screen_base = &base;
+		m_screen_tag = tag;
+	}
+	template <class ObjectClass, bool Required>
+	void set_screen(device_finder<ObjectClass, Required> &finder)
+	{
+		m_screen_base = &finder.finder_target().first;
+		m_screen_tag = finder.finder_target().second;
+	}
 
 	// getters
 	screen_device &screen() const { return *m_screen; }
@@ -51,12 +53,14 @@ public:
 
 protected:
 	// optional operation overrides
+	virtual void interface_config_complete() override;
 	virtual void interface_validity_check(validity_checker &valid) const override;
 	virtual void interface_pre_start() override;
 
 private:
 	// configuration state
 	bool            m_screen_required;          // is a screen required?
+	device_t *      m_screen_base;              // base device for resolving target screen
 	const char *    m_screen_tag;               // configured tag for the target screen
 
 	// internal state

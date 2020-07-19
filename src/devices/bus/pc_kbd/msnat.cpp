@@ -12,7 +12,6 @@ TODO:
 
 #include "emu.h"
 #include "msnat.h"
-#include "cpu/mcs51/mcs51.h"
 
 
 /***************************************************************************
@@ -245,15 +244,16 @@ void pc_kbd_microsoft_natural_device::device_reset()
 //  device_add_mconfig - add device configuration
 //-------------------------------------------------
 
-MACHINE_CONFIG_START(pc_kbd_microsoft_natural_device::device_add_mconfig)
-	MCFG_CPU_ADD("ms_natrl_cpu", I8051, XTAL(6'000'000))
-	MCFG_MCS51_PORT_P0_IN_CB(READ8(pc_kbd_microsoft_natural_device, p0_read))
-	MCFG_MCS51_PORT_P0_OUT_CB(WRITE8(pc_kbd_microsoft_natural_device, p0_write))
-	MCFG_MCS51_PORT_P1_OUT_CB(WRITE8(pc_kbd_microsoft_natural_device, p1_write))
-	MCFG_MCS51_PORT_P2_OUT_CB(WRITE8(pc_kbd_microsoft_natural_device, p2_write))
-	MCFG_MCS51_PORT_P3_IN_CB(READ8(pc_kbd_microsoft_natural_device, p3_read))
-	MCFG_MCS51_PORT_P3_OUT_CB(WRITE8(pc_kbd_microsoft_natural_device, p3_write))
-MACHINE_CONFIG_END
+void pc_kbd_microsoft_natural_device::device_add_mconfig(machine_config &config)
+{
+	I8051(config, m_cpu, XTAL(6'000'000));
+	m_cpu->port_in_cb<0>().set(FUNC(pc_kbd_microsoft_natural_device::p0_read));
+	m_cpu->port_out_cb<0>().set(FUNC(pc_kbd_microsoft_natural_device::p0_write));
+	m_cpu->port_out_cb<1>().set(FUNC(pc_kbd_microsoft_natural_device::p1_write));
+	m_cpu->port_out_cb<2>().set(FUNC(pc_kbd_microsoft_natural_device::p2_write));
+	m_cpu->port_in_cb<3>().set(FUNC(pc_kbd_microsoft_natural_device::p3_read));
+	m_cpu->port_out_cb<3>().set(FUNC(pc_kbd_microsoft_natural_device::p3_write));
+}
 
 
 ioport_constructor pc_kbd_microsoft_natural_device::device_input_ports() const
@@ -282,7 +282,7 @@ WRITE_LINE_MEMBER( pc_kbd_microsoft_natural_device::data_write )
 }
 
 
-READ8_MEMBER( pc_kbd_microsoft_natural_device::p0_read )
+uint8_t pc_kbd_microsoft_natural_device::p0_read()
 {
 	uint8_t data = 0xFF;
 
@@ -341,25 +341,25 @@ READ8_MEMBER( pc_kbd_microsoft_natural_device::p0_read )
 }
 
 
-WRITE8_MEMBER( pc_kbd_microsoft_natural_device::p0_write )
+void pc_kbd_microsoft_natural_device::p0_write(uint8_t data)
 {
 	m_p0 = data;
 }
 
 
-WRITE8_MEMBER( pc_kbd_microsoft_natural_device::p1_write )
+void pc_kbd_microsoft_natural_device::p1_write(uint8_t data)
 {
 	m_p1 = data;
 }
 
 
-WRITE8_MEMBER( pc_kbd_microsoft_natural_device::p2_write )
+void pc_kbd_microsoft_natural_device::p2_write(uint8_t data)
 {
 	m_p2 = data;
 }
 
 
-READ8_MEMBER( pc_kbd_microsoft_natural_device::p3_read )
+uint8_t pc_kbd_microsoft_natural_device::p3_read()
 {
 	uint8_t data = m_p3 & ~0x21;
 
@@ -373,7 +373,7 @@ READ8_MEMBER( pc_kbd_microsoft_natural_device::p3_read )
 }
 
 
-WRITE8_MEMBER( pc_kbd_microsoft_natural_device::p3_write )
+void pc_kbd_microsoft_natural_device::p3_write(uint8_t data)
 {
 	if ( m_pc_kbdc )
 	{

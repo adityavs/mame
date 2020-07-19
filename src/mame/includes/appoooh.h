@@ -6,6 +6,8 @@
 #pragma once
 
 #include "sound/msm5205.h"
+#include "emupal.h"
+#include "tilemap.h"
 
 class appoooh_state : public driver_device
 {
@@ -25,26 +27,26 @@ public:
 		m_msm(*this, "msm")
 	{ }
 
-	DECLARE_DRIVER_INIT(robowresb);
+	void init_robowresb();
 	void appoooh(machine_config &config);
 	void robowres(machine_config &config);
 	void robowrese(machine_config &config);
 
 protected:
-	DECLARE_WRITE8_MEMBER(adpcm_w);
-	DECLARE_WRITE8_MEMBER(scroll_w);
-	DECLARE_WRITE8_MEMBER(fg_videoram_w);
-	DECLARE_WRITE8_MEMBER(fg_colorram_w);
-	DECLARE_WRITE8_MEMBER(bg_videoram_w);
-	DECLARE_WRITE8_MEMBER(bg_colorram_w);
-	DECLARE_WRITE8_MEMBER(out_w);
+	void adpcm_w(uint8_t data);
+	void scroll_w(uint8_t data);
+	void fg_videoram_w(offs_t offset, uint8_t data);
+	void fg_colorram_w(offs_t offset, uint8_t data);
+	void bg_videoram_w(offs_t offset, uint8_t data);
+	void bg_colorram_w(offs_t offset, uint8_t data);
+	void out_w(uint8_t data);
 	TILE_GET_INFO_MEMBER(get_fg_tile_info);
 	TILE_GET_INFO_MEMBER(get_bg_tile_info);
 	virtual void machine_start() override;
 	virtual void machine_reset() override;
 	virtual void video_start() override;
-	DECLARE_PALETTE_INIT(appoooh);
-	DECLARE_PALETTE_INIT(robowres);
+	void appoooh_palette(palette_device &palette) const;
+	void robowres_palette(palette_device &palette) const;
 	uint32_t screen_update_appoooh(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
 	uint32_t screen_update_robowres(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
 	INTERRUPT_GEN_MEMBER(vblank_irq);

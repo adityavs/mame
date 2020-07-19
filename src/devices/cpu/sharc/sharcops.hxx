@@ -472,9 +472,9 @@ void adsp21062_device::SHIFT_OPERATION_IMM(int shiftop, int data, int rn, int rx
 		case 0x00:      /* LSHIFT Rx BY <data8>*/
 		{
 			if(shift < 0) {
-				REG(rn) = (shift > -32 ) ? (REG(rx) >> -shift) : 0;
+				REG(rn) = (shift > -32 ) ? ((uint32_t)REG(rx) >> -shift) : 0;
 			} else {
-				REG(rn) = (shift < 32) ? (REG(rx) << shift) : 0;
+				REG(rn) = (shift < 32) ? ((uint32_t)REG(rx) << shift) : 0;
 				if (shift > 0)
 				{
 					m_core->astat |= SV;
@@ -524,14 +524,15 @@ void adsp21062_device::SHIFT_OPERATION_IMM(int shiftop, int data, int rn, int rx
 		{
 			uint32_t r = 0;
 			if(shift < 0) {
-				r = (shift > -32 ) ? (REG(rx) >> -shift) : 0;
+				r = (shift > -32 ) ? ((uint32_t)REG(rx) >> -shift) : 0;
 			} else {
-				r = (shift < 32) ? (REG(rx) << shift) : 0;
+				r = (shift < 32) ? ((uint32_t)REG(rx) << shift) : 0;
 				if (shift > 0)
 				{
 					m_core->astat |= SV;
 				}
 			}
+
 			SET_FLAG_SZ(r);
 
 			REG(rn) = REG(rn) | r;
@@ -564,7 +565,7 @@ void adsp21062_device::SHIFT_OPERATION_IMM(int shiftop, int data, int rn, int rx
 			}
 			break;
 		}
-			
+
 		case 0x12:      /* FEXT Rx BY <bit6>:<len6> (Sign Extended) */
 		{
 			uint32_t ext = (REG(rx) & MAKE_EXTRACT_MASK(bit, len)) >> bit;
@@ -748,12 +749,12 @@ void adsp21062_device::COMPUTE(uint32_t opcode)
 			}
 
 			// TODO: verify this (Gunblade NY Score Attack Remix mode)
-			case 0x1d: 
+			case 0x1d:
 			{
 				compute_fmul_abs(fm, fxm, fym, fa, fxa, fya);
 				break;
 			}
-			
+
 			case 0x1e:      /* Fm = Fxm * Fym,   Fa = MAX(Fxa, Fya) */
 			{
 				compute_fmul_fmax(fm, fxm, fym, fa, fxa, fya);
@@ -821,6 +822,7 @@ void adsp21062_device::COMPUTE(uint32_t opcode)
 					case 0xca:      compute_float(rn, rx); break;
 					case 0xd9:      compute_fix_scaled(rn, rx, ry); break;
 					case 0xda:      compute_float_scaled(rn, rx, ry); break;
+					case 0xe0:      compute_fcopysign(rn, rx, ry); break;
 					case 0xe1:      compute_fmin(rn, rx, ry); break;
 					case 0xe2:      compute_fmax(rn, rx, ry); break;
 					case 0xe3:      compute_fclip(rn, rx, ry); break;
@@ -887,11 +889,11 @@ void adsp21062_device::COMPUTE(uint32_t opcode)
 						int shift = REG(ry);
 						if(shift < 0)
 						{
-							REG(rn) = (shift > -32 ) ? (REG(rx) >> -shift) : 0;
+							REG(rn) = (shift > -32 ) ? ((uint32_t)REG(rx) >> -shift) : 0;
 						}
 						else
 						{
-							REG(rn) = (shift < 32) ? (REG(rx) << shift) : 0;
+							REG(rn) = (shift < 32) ? ((uint32_t)REG(rx) << shift) : 0;
 							if (shift > 0)
 							{
 								m_core->astat |= SV;

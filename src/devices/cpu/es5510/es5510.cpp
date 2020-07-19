@@ -355,7 +355,7 @@ static inline char * DESCRIBE_INSTR(char *s, uint64_t instr, uint32_t gpr, const
 }
 
 
-READ8_MEMBER(es5510_device::host_r)
+uint8_t es5510_device::host_r(address_space &space, offs_t offset)
 {
 	//  printf("%06x: DSP read offset %04x (data is %04x)\n",pc(),offset,dsp_ram[offset]);
 
@@ -402,7 +402,7 @@ READ8_MEMBER(es5510_device::host_r)
 	return 0x00;
 }
 
-WRITE8_MEMBER(es5510_device::host_w)
+void es5510_device::host_w(offs_t offset, uint8_t data)
 {
 #if VERBOSE
 	static char buf[1024];
@@ -553,10 +553,10 @@ void es5510_device::device_start() {
 	gpr = std::make_unique<int32_t[]>(0xc0);     // 24 bits, right justified
 	instr = std::make_unique<uint64_t[]>(160);    // 48 bits, right justified
 	dram = std::make_unique<int16_t[]>(DRAM_SIZE);   // there are up to 20 address bits (at least 16 expected), left justified within the 24 bits of a gpr or dadr; we preallocate all of it.
-	m_icountptr = &icount;
+	set_icountptr(icount);
 	state_add(STATE_GENPC,"GENPC", pc).noshow();
 	state_add(STATE_GENPCBASE, "CURPC", pc).noshow();
-	
+
 	save_item(NAME(icount));
 	save_item(NAME(halt_asserted));
 	save_item(NAME(pc));
@@ -586,10 +586,10 @@ void es5510_device::device_start() {
 	save_item(NAME(dol));
 	save_item(NAME(dol_count));
 
-	save_pointer(NAME(gpr.get()), 0xc0);
-	save_pointer(NAME(instr.get()), 160);
-	save_pointer(NAME(dram.get()), DRAM_SIZE);
-	
+	save_pointer(NAME(gpr), 0xc0);
+	save_pointer(NAME(instr), 160);
+	save_pointer(NAME(dram), DRAM_SIZE);
+
 	save_item(NAME(dol_latch));
 	save_item(NAME(dil_latch));
 	save_item(NAME(dadr_latch));
@@ -647,23 +647,23 @@ device_memory_interface::space_config_vector es5510_device::memory_space_config(
 	};
 }
 
-uint64_t es5510_device::execute_clocks_to_cycles(uint64_t clocks) const {
+uint64_t es5510_device::execute_clocks_to_cycles(uint64_t clocks) const noexcept {
 	return clocks / 3;
 }
 
-uint64_t es5510_device::execute_cycles_to_clocks(uint64_t cycles) const {
+uint64_t es5510_device::execute_cycles_to_clocks(uint64_t cycles) const noexcept {
 	return cycles * 3;
 }
 
-uint32_t es5510_device::execute_min_cycles() const {
+uint32_t es5510_device::execute_min_cycles() const noexcept {
 	return 1;
 }
 
-uint32_t es5510_device::execute_max_cycles() const {
+uint32_t es5510_device::execute_max_cycles() const noexcept {
 	return 1;
 }
 
-uint32_t es5510_device::execute_input_lines() const {
+uint32_t es5510_device::execute_input_lines() const noexcept {
 	return 1;
 }
 
@@ -793,7 +793,7 @@ void es5510_device::execute_run() {
 			// --- RAM cycle N-2 (if a Read cycle): data read from bus is stored in DIL
 			if (ram_pp.cycle != RAM_CYCLE_WRITE) {
 				if (ram_pp.io) { // read from I/O and store into DIL
-					dil = 0; // read_io(ram_pp.address);;
+					dil = 0; // read_io(ram_pp.address);
 				} else { // read from DRAM and store into DIL
 					dil = dram_r(ram_pp.address) << 8;
 					LOG_EXEC(("  . RAM: read %x (%d) from address %x\n", dil, dil, ram_pp.address));
@@ -996,9 +996,9 @@ void es5510_device::execute_run() {
 	}
 }
 
-util::disasm_interface *es5510_device::create_disassembler()
+std::unique_ptr<util::disasm_interface> es5510_device::create_disassembler()
 {
-	return new es5510_disassembler;
+	return std::make_unique<es5510_disassembler>();
 }
 
 #if VERBOSE_EXEC

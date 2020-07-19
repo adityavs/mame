@@ -478,10 +478,10 @@ DEFINE_DEVICE_TYPE(GBA_CART_SLOT, gba_cart_slot_device, "gba_cart_slot", "Game B
 //  device_gba_cart_interface - constructor
 //-------------------------------------------------
 
-device_gba_cart_interface::device_gba_cart_interface(const machine_config &mconfig, device_t &device)
-	: device_slot_card_interface(mconfig, device)
-	, m_rom(nullptr)
-	, m_rom_size(0)
+device_gba_cart_interface::device_gba_cart_interface(const machine_config &mconfig, device_t &device) :
+	device_interface(device, "gbacart"),
+	m_rom(nullptr),
+	m_rom_size(0)
 {
 }
 
@@ -761,7 +761,7 @@ int gba_cart_slot_device::get_cart_type(const uint8_t *ROM, uint32_t len)
 		else if ((i<len-8) && !memcmp(&ROM[i], "SIIRTC_V", 8))
 			chip |= GBA_CHIP_RTC;
 	}
-	osd_printf_info("GBA: Detected (ROM) %s\n", gba_chip_string(chip).c_str());
+	osd_printf_info("GBA: Detected (ROM) %s\n", gba_chip_string(chip));
 
 	// fix for games which return more than one kind of chip: either it is one of the known titles, or we default to no battery
 	if (gba_chip_has_conflict(chip))
@@ -829,7 +829,7 @@ int gba_cart_slot_device::get_cart_type(const uint8_t *ROM, uint32_t len)
 		has_rtc = true;
 	}
 
-	osd_printf_info("GBA: Emulate %s\n", gba_chip_string(chip).c_str());
+	osd_printf_info("GBA: Emulate %s\n", gba_chip_string(chip));
 
 	switch (chip)
 	{
@@ -901,26 +901,26 @@ std::string gba_cart_slot_device::get_default_card_software(get_default_card_sof
  read
  -------------------------------------------------*/
 
-READ32_MEMBER(gba_cart_slot_device::read_rom)
+uint32_t gba_cart_slot_device::read_rom(offs_t offset)
 {
 	if (m_cart)
-		return m_cart->read_rom(space, offset, mem_mask);
+		return m_cart->read_rom(offset);
 	else
 		return 0xffffffff;
 }
 
-READ32_MEMBER(gba_cart_slot_device::read_ram)
+uint32_t gba_cart_slot_device::read_ram(offs_t offset, uint32_t mem_mask)
 {
 	if (m_cart)
-		return m_cart->read_ram(space, offset, mem_mask);
+		return m_cart->read_ram(offset, mem_mask);
 	else
 		return 0xffffffff;
 }
 
-READ32_MEMBER(gba_cart_slot_device::read_gpio)
+uint32_t gba_cart_slot_device::read_gpio(offs_t offset, uint32_t mem_mask)
 {
 	if (m_cart)
-		return m_cart->read_gpio(space, offset, mem_mask);
+		return m_cart->read_gpio(offset, mem_mask);
 	else
 		return 0xffffffff;
 }
@@ -930,14 +930,14 @@ READ32_MEMBER(gba_cart_slot_device::read_gpio)
  write
  -------------------------------------------------*/
 
-WRITE32_MEMBER(gba_cart_slot_device::write_ram)
+void gba_cart_slot_device::write_ram(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	if (m_cart)
-		m_cart->write_ram(space, offset, data, mem_mask);
+		m_cart->write_ram(offset, data, mem_mask);
 }
 
-WRITE32_MEMBER(gba_cart_slot_device::write_gpio)
+void gba_cart_slot_device::write_gpio(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	if (m_cart)
-		m_cart->write_gpio(space, offset, data, mem_mask);
+		m_cart->write_gpio(offset, data, mem_mask);
 }

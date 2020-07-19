@@ -28,20 +28,24 @@
 DEFINE_DEVICE_TYPE(DAVE, dave_device, "dave", "Inteligent Designs DAVE")
 
 
-ADDRESS_MAP_START(dave_device::z80_program_map)
-	AM_RANGE(0x0000, 0xffff) AM_READWRITE(program_r, program_w)
-ADDRESS_MAP_END
+void dave_device::z80_program_map(address_map &map)
+{
+	map(0x0000, 0xffff).rw(FUNC(dave_device::program_r), FUNC(dave_device::program_w));
+}
 
-ADDRESS_MAP_START(dave_device::z80_io_map)
-	AM_RANGE(0x0000, 0xffff) AM_READWRITE(io_r, io_w)
-ADDRESS_MAP_END
+void dave_device::z80_io_map(address_map &map)
+{
+	map(0x0000, 0xffff).rw(FUNC(dave_device::io_r), FUNC(dave_device::io_w));
+}
 
 
-ADDRESS_MAP_START(dave_device::program_map)
-ADDRESS_MAP_END
+void dave_device::program_map(address_map &map)
+{
+}
 
-ADDRESS_MAP_START(dave_device::io_map)
-ADDRESS_MAP_END
+void dave_device::io_map(address_map &map)
+{
+}
 
 
 
@@ -308,7 +312,7 @@ WRITE_LINE_MEMBER( dave_device::int2_w )
 //  program_r - program space read
 //-------------------------------------------------
 
-READ8_MEMBER( dave_device::program_r )
+uint8_t dave_device::program_r(offs_t offset)
 {
 	uint8_t segment = m_segment[offset >> 14];
 	offset = (segment << 14) | (offset & 0x3fff);
@@ -321,7 +325,7 @@ READ8_MEMBER( dave_device::program_r )
 //  program_w - program space write
 //-------------------------------------------------
 
-WRITE8_MEMBER( dave_device::program_w )
+void dave_device::program_w(offs_t offset, uint8_t data)
 {
 	uint8_t segment = m_segment[offset >> 14];
 	offset = (segment << 14) | (offset & 0x3fff);
@@ -334,7 +338,7 @@ WRITE8_MEMBER( dave_device::program_w )
 //  io_r - I/O space read
 //-------------------------------------------------
 
-READ8_MEMBER( dave_device::io_r )
+uint8_t dave_device::io_r(offs_t offset)
 {
 	uint8_t data = 0;
 
@@ -387,7 +391,7 @@ READ8_MEMBER( dave_device::io_r )
 //  io_w - I/O space write
 //-------------------------------------------------
 
-WRITE8_MEMBER( dave_device::io_w )
+void dave_device::io_w(offs_t offset, uint8_t data)
 {
 	switch (offset & 0xff)
 	{

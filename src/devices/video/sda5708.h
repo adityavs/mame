@@ -41,13 +41,6 @@
  *
  */
 
-///*************************************************************************
-//  INTERFACE CONFIGURATION MACROS
-///*************************************************************************
-
-#define MCFG_SDA5708_ADD(_tag)  \
-	MCFG_DEVICE_ADD(_tag, SDA5708, 0)
-
 
 ///*************************************************************************
 //  TYPE DEFINITIONS
@@ -121,6 +114,6 @@ private:
 
 
 // device type definition
-extern const device_type SDA5708;
+DECLARE_DEVICE_TYPE(SDA5708, sda5708_device)
 
 #endif // MAME_VIDEO_SDA5708_H

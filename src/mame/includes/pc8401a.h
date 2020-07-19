@@ -1,9 +1,9 @@
 // license:BSD-3-Clause
 // copyright-holders:Curt Coder
-#pragma once
-
 #ifndef MAME_INCLUDES_PC8401A_H
 #define MAME_INCLUDES_PC8401A_H
+
+#pragma once
 
 
 #include "cpu/z80/z80.h"
@@ -18,6 +18,7 @@
 #include "bus/generic/slot.h"
 #include "bus/generic/carts.h"
 
+#include "emupal.h"
 #include "screen.h"
 
 #define SCREEN_TAG      "screen"
@@ -69,20 +70,20 @@ public:
 	virtual void machine_start() override;
 	virtual void video_start() override;
 
-	DECLARE_WRITE8_MEMBER( mmr_w );
-	DECLARE_READ8_MEMBER( mmr_r );
-	DECLARE_READ8_MEMBER( rtc_r );
-	DECLARE_WRITE8_MEMBER( rtc_cmd_w );
-	DECLARE_WRITE8_MEMBER( rtc_ctrl_w );
-	DECLARE_READ8_MEMBER( io_rom_data_r );
-	DECLARE_WRITE8_MEMBER( io_rom_addr_w );
-	DECLARE_READ8_MEMBER( port70_r );
-	DECLARE_READ8_MEMBER( port71_r );
-	DECLARE_WRITE8_MEMBER( port70_w );
-	DECLARE_WRITE8_MEMBER( port71_w );
-	DECLARE_READ8_MEMBER( ppi_pc_r );
-	DECLARE_WRITE8_MEMBER( ppi_pc_w );
-	DECLARE_PALETTE_INIT(pc8401a);
+	void mmr_w(uint8_t data);
+	uint8_t mmr_r();
+	uint8_t rtc_r();
+	void rtc_cmd_w(uint8_t data);
+	void rtc_ctrl_w(uint8_t data);
+	uint8_t io_rom_data_r();
+	void io_rom_addr_w(offs_t offset, uint8_t data);
+	uint8_t port70_r();
+	uint8_t port71_r();
+	void port70_w(uint8_t data);
+	void port71_w(uint8_t data);
+	uint8_t ppi_pc_r();
+	void ppi_pc_w(uint8_t data);
+	void pc8401a_palette(palette_device &palette) const;
 
 	void scan_keyboard();
 	void bankswitch(uint8_t data);
@@ -112,10 +113,15 @@ public:
 		: pc8401a_state(mconfig, type, tag)
 	{ }
 
-	virtual void video_start() override;
-	uint32_t screen_update(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
 	void pc8500(machine_config &config);
+
+protected:
+	virtual void video_start() override;
+
 	void pc8500_video(machine_config &config);
+
+private:
+	uint32_t screen_update(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
 };
 
-#endif
+#endif // MAME_INCLUDES_PC8401A_H

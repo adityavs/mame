@@ -29,17 +29,21 @@
 // device type definition
 DEFINE_DEVICE_TYPE(M50458, m50458_device, "m50458", "Mitsubishi M50458 OSD")
 
-ADDRESS_MAP_START(m50458_device::m50458_vram)
-	AM_RANGE(0x0000, 0x023f) AM_RAM // vram
-	AM_RANGE(0x0240, 0x0241) AM_WRITE(vreg_120_w)
-	AM_RANGE(0x0242, 0x0243) AM_WRITE(vreg_121_w)
-	AM_RANGE(0x0244, 0x0245) AM_WRITE(vreg_122_w)
-	AM_RANGE(0x0246, 0x0247) AM_WRITE(vreg_123_w)
-	AM_RANGE(0x0248, 0x0249) AM_WRITE(vreg_124_w)
-	AM_RANGE(0x024a, 0x024b) AM_WRITE(vreg_125_w)
-	AM_RANGE(0x024c, 0x024d) AM_WRITE(vreg_126_w)
-	AM_RANGE(0x024e, 0x024f) AM_WRITE(vreg_127_w)
-ADDRESS_MAP_END
+void m50458_device::m50458_vram(address_map &map)
+{
+	if (!has_configured_map(0))
+	{
+		map(0x0000, 0x023f).ram(); // vram
+		map(0x0240, 0x0241).w(FUNC(m50458_device::vreg_120_w));
+		map(0x0242, 0x0243).w(FUNC(m50458_device::vreg_121_w));
+		map(0x0244, 0x0245).w(FUNC(m50458_device::vreg_122_w));
+		map(0x0246, 0x0247).w(FUNC(m50458_device::vreg_123_w));
+		map(0x0248, 0x0249).w(FUNC(m50458_device::vreg_124_w));
+		map(0x024a, 0x024b).w(FUNC(m50458_device::vreg_125_w));
+		map(0x024c, 0x024d).w(FUNC(m50458_device::vreg_126_w));
+		map(0x024e, 0x024f).w(FUNC(m50458_device::vreg_127_w));
+	}
+}
 
 // internal GFX ROM (TODO: GFXs in here should be 12x18, not 16x18)
 // (also note: ROM length CAN'T be 0x1200)
@@ -49,12 +53,12 @@ ROM_START( m50458 )
 	ROM_LOAD("m50458_char.bin",  0x0000, 0x1200, BAD_DUMP CRC(011cc342) SHA1(d5b9f32d6e251b4b25945267d7c68c099bd83e96) )
 ROM_END
 
-WRITE16_MEMBER( m50458_device::vreg_120_w)
+void m50458_device::vreg_120_w(uint16_t data)
 {
 //  printf("%04x\n",data);
 }
 
-WRITE16_MEMBER( m50458_device::vreg_121_w)
+void m50458_device::vreg_121_w(uint16_t data)
 {
 	/* Horizontal char size for line 0 */
 	m_hsz1 = (data & 0xc0) >> 6;
@@ -67,7 +71,7 @@ WRITE16_MEMBER( m50458_device::vreg_121_w)
 }
 
 
-WRITE16_MEMBER( m50458_device::vreg_122_w)
+void m50458_device::vreg_122_w(uint16_t data)
 {
 	/* Vertical char size for line 0 */
 	m_vsz1 = (data & 0xc0) >> 6;
@@ -80,7 +84,7 @@ WRITE16_MEMBER( m50458_device::vreg_122_w)
 
 }
 
-WRITE16_MEMBER( m50458_device::vreg_123_w)
+void m50458_device::vreg_123_w(uint16_t data)
 {
 	/* fractional part of vertical scrolling */
 	m_scrf = data & 0x1f;
@@ -93,17 +97,17 @@ WRITE16_MEMBER( m50458_device::vreg_123_w)
 //  printf("%02x %02x %02x\n",m_scrr,m_scrf,m_space);
 }
 
-WRITE16_MEMBER( m50458_device::vreg_124_w)
+void m50458_device::vreg_124_w(uint16_t data)
 {
 }
 
-WRITE16_MEMBER( m50458_device::vreg_125_w)
+void m50458_device::vreg_125_w(uint16_t data)
 {
 	/* blinking cycle */
 	m_blink = data & 4 ? 0x20 : 0x40;
 }
 
-WRITE16_MEMBER( m50458_device::vreg_126_w)
+void m50458_device::vreg_126_w(uint16_t data)
 {
 	/* Raster Color Setting */
 	m_phase = data & 7;
@@ -112,7 +116,7 @@ WRITE16_MEMBER( m50458_device::vreg_126_w)
 }
 
 
-WRITE16_MEMBER( m50458_device::vreg_127_w)
+void m50458_device::vreg_127_w(uint16_t data)
 {
 	if(data & 0x20) // RAMERS, display RAM is erased
 	{
@@ -179,7 +183,7 @@ m50458_device::m50458_device(const machine_config &mconfig, const char *tag, dev
 	: device_t(mconfig, M50458, tag, owner, clock)
 	, device_memory_interface(mconfig, *this)
 	, device_video_interface(mconfig, *this)
-	, m_space_config("videoram", ENDIANNESS_LITTLE, 16, 16, 0, address_map_constructor(), address_map_constructor(FUNC(m50458_device::m50458_vram), this))
+	, m_space_config("videoram", ENDIANNESS_LITTLE, 16, 16, 0, address_map_constructor(FUNC(m50458_device::m50458_vram), this))
 {
 }
 

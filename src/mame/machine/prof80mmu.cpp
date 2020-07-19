@@ -18,12 +18,14 @@
 DEFINE_DEVICE_TYPE(PROF80_MMU, prof80_mmu_device, "prof80_mmu", "PROF80 MMU")
 
 
-ADDRESS_MAP_START(prof80_mmu_device::z80_program_map)
-	AM_RANGE(0x0000, 0xffff) AM_READWRITE(program_r, program_w)
-ADDRESS_MAP_END
+void prof80_mmu_device::z80_program_map(address_map &map)
+{
+	map(0x0000, 0xffff).rw(FUNC(prof80_mmu_device::program_r), FUNC(prof80_mmu_device::program_w));
+}
 
-ADDRESS_MAP_START(prof80_mmu_device::program_map)
-ADDRESS_MAP_END
+void prof80_mmu_device::program_map(address_map &map)
+{
+}
 
 
 
@@ -71,7 +73,7 @@ device_memory_interface::space_config_vector prof80_mmu_device::memory_space_con
 //  par_w -
 //-------------------------------------------------
 
-WRITE8_MEMBER( prof80_mmu_device::par_w )
+void prof80_mmu_device::par_w(offs_t offset, uint8_t data)
 {
 	int bank = offset >> 12;
 
@@ -93,7 +95,7 @@ WRITE_LINE_MEMBER( prof80_mmu_device::mme_w )
 //  program_r - program space read
 //-------------------------------------------------
 
-READ8_MEMBER( prof80_mmu_device::program_r )
+uint8_t prof80_mmu_device::program_r(offs_t offset)
 {
 	if (m_enabled)
 	{
@@ -113,7 +115,7 @@ READ8_MEMBER( prof80_mmu_device::program_r )
 //  program_w - program space write
 //-------------------------------------------------
 
-WRITE8_MEMBER( prof80_mmu_device::program_w )
+void prof80_mmu_device::program_w(offs_t offset, uint8_t data)
 {
 	if (m_enabled)
 	{

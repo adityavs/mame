@@ -25,19 +25,10 @@ DEFINE_DEVICE_TYPE(BBC_JOYPORT_SLOT, bbc_joyport_slot_device, "bbc_joyport_slot"
 //  device_bbc_joyport_interface - constructor
 //-------------------------------------------------
 
-device_bbc_joyport_interface::device_bbc_joyport_interface(const machine_config &mconfig, device_t &device)
-	: device_slot_card_interface(mconfig, device)
+device_bbc_joyport_interface::device_bbc_joyport_interface(const machine_config &mconfig, device_t &device) :
+	device_interface(device, "bbcjoyport")
 {
 	m_slot = dynamic_cast<bbc_joyport_slot_device *>(device.owner());
-}
-
-
-//-------------------------------------------------
-//  ~device_bbc_joyport_interface - destructor
-//-------------------------------------------------
-
-device_bbc_joyport_interface::~device_bbc_joyport_interface()
-{
 }
 
 
@@ -51,22 +42,13 @@ device_bbc_joyport_interface::~device_bbc_joyport_interface()
 
 bbc_joyport_slot_device::bbc_joyport_slot_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock) :
 	device_t(mconfig, BBC_JOYPORT_SLOT, tag, owner, clock),
-	device_slot_interface(mconfig, *this),
-	m_device(nullptr)
+	device_single_card_slot_interface(mconfig, *this),
+	m_device(nullptr),
+	m_cb1_handler(*this),
+	m_cb2_handler(*this)
 {
 }
 
-
-//-------------------------------------------------
-//  device_validity_check -
-//-------------------------------------------------
-
-void bbc_joyport_slot_device::device_validity_check(validity_checker &valid) const
-{
-	device_t *const carddev = get_card_device();
-	if (carddev && !dynamic_cast<device_bbc_joyport_interface *>(carddev))
-		osd_printf_error("Card device %s (%s) does not implement device_bbc_joyport_interface\n", carddev->tag(), carddev->name());
-}
 
 //-------------------------------------------------
 //  device_start - device-specific startup
@@ -74,34 +56,36 @@ void bbc_joyport_slot_device::device_validity_check(validity_checker &valid) con
 
 void bbc_joyport_slot_device::device_start()
 {
-	device_t *const carddev = get_card_device();
-	m_device = dynamic_cast<device_bbc_joyport_interface *>(carddev);
-	if (carddev && !m_device)
-		fatalerror("Card device %s (%s) does not implement device_bbc_joyport_interface\n", carddev->tag(), carddev->name());
+	m_device = get_card_device();
+
+	// resolve callbacks
+	m_cb1_handler.resolve_safe();
+	m_cb2_handler.resolve_safe();
 }
 
-uint8_t bbc_joyport_slot_device::cb_r()
+
+//-------------------------------------------------
+//  pb_r
+//-------------------------------------------------
+
+uint8_t bbc_joyport_slot_device::pb_r()
 {
+	// TODO: Joyport connected to PB0-PB4 only. PB5-PB7 are expansion port.
 	if (m_device)
-		return m_device->cb_r();
+		return 0xe0 | m_device->pb_r();
 	else
 		return 0xff;
 }
 
-uint8_t bbc_joyport_slot_device::pb_r()
+
+//-------------------------------------------------
+//  pb_w
+//-------------------------------------------------
+
+void bbc_joyport_slot_device::pb_w(uint8_t data)
 {
 	if (m_device)
-		return m_device->pb_r();
-	else
-		return 0x1f;
-}
-
-//-------------------------------------------------
-//  device_reset - device-specific reset
-//-------------------------------------------------
-
-void bbc_joyport_slot_device::device_reset()
-{
+		m_device->pb_w(data);
 }
 
 
@@ -115,7 +99,8 @@ void bbc_joyport_slot_device::device_reset()
 //#include "mouse.h"
 
 
-SLOT_INTERFACE_START( bbc_joyport_devices )
-	SLOT_INTERFACE("joystick", BBCMC_JOYSTICK)
-	//SLOT_INTERFACE("mouse", BBCMC_MOUSE)
-SLOT_INTERFACE_END
+void bbc_joyport_devices(device_slot_interface &device)
+{
+	device.option_add("joystick", BBCMC_JOYSTICK);
+	//device.option_add("mouse", BBCMC_MOUSE);
+}

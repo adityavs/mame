@@ -16,6 +16,7 @@
 #include "bus/arcadia/slot.h"
 #include "bus/arcadia/rom.h"
 
+#include "emupal.h"
 #include "screen.h"
 
 // space vultures sprites above
@@ -51,17 +52,17 @@ public:
 		m_screen(*this, "screen")
 	{ }
 
-	DECLARE_DRIVER_INIT(arcadia);
+	void init_arcadia();
 	void arcadia(machine_config &config);
 
 protected:
 	DECLARE_READ_LINE_MEMBER(vsync_r);
-	DECLARE_READ8_MEMBER(video_r);
-	DECLARE_WRITE8_MEMBER(video_w);
+	uint8_t video_r(offs_t offset);
+	void video_w(offs_t offset, uint8_t data);
 
 	virtual void machine_start() override;
 	virtual void video_start() override;
-	DECLARE_PALETTE_INIT(arcadia);
+	void palette_init(palette_device &palette) const;
 	uint32_t screen_update_arcadia(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
 	INTERRUPT_GEN_MEMBER(video_line);
 	void arcadia_mem(address_map &map);
@@ -129,7 +130,7 @@ private:
 	required_ioport m_controller2_extra;
 	required_ioport m_joysticks;
 
-	required_device<cpu_device> m_maincpu;
+	required_device<s2650_device> m_maincpu;
 	required_device<arcadia_cart_slot_device> m_cart;
 	required_device<gfxdecode_device> m_gfxdecode;
 	required_device<palette_device> m_palette;

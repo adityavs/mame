@@ -52,9 +52,9 @@ void victory_state::video_start()
 
 	/* register for state saving */
 	save_item(NAME(m_paletteram));
-	save_pointer(NAME(m_rram.get()), 0x4000);
-	save_pointer(NAME(m_gram.get()), 0x4000);
-	save_pointer(NAME(m_bram.get()), 0x4000);
+	save_pointer(NAME(m_rram), 0x4000);
+	save_pointer(NAME(m_gram), 0x4000);
+	save_pointer(NAME(m_bram), 0x4000);
 	save_item(NAME(m_vblank_irq));
 	save_item(NAME(m_fgcoll));
 	save_item(NAME(m_fgcollx));
@@ -110,7 +110,7 @@ INTERRUPT_GEN_MEMBER(victory_state::vblank_interrupt)
  *
  *************************************/
 
-WRITE8_MEMBER(victory_state::paletteram_w)
+void victory_state::paletteram_w(offs_t offset, uint8_t data)
 {
 	m_paletteram[offset & 0x3f] = ((offset & 0x80) << 1) | data;
 }
@@ -136,7 +136,7 @@ void victory_state::set_palette()
  *
  *************************************/
 
-READ8_MEMBER(victory_state::video_control_r)
+uint8_t victory_state::video_control_r(offs_t offset)
 {
 	int result = 0;
 
@@ -202,7 +202,7 @@ READ8_MEMBER(victory_state::video_control_r)
  *
  *************************************/
 
-WRITE8_MEMBER(victory_state::video_control_w)
+void victory_state::video_control_w(offs_t offset, uint8_t data)
 {
 	struct micro_t &micro = m_micro;
 	switch (offset)

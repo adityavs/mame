@@ -13,26 +13,6 @@
 
 
 //**************************************************************************
-//  INTERFACE CONFIGURATION MACROS
-//**************************************************************************
-
-#define MCFG_SEIBU_CRTC_DECRYPT_KEY_CB(_devcb) \
-	devcb = &downcast<seibu_crtc_device &>(*device).set_decrypt_key_callback(DEVCB_##_devcb);
-
-#define MCFG_SEIBU_CRTC_LAYER_EN_CB(_devcb) \
-	devcb = &downcast<seibu_crtc_device &>(*device).set_layer_en_callback(DEVCB_##_devcb);
-
-#define MCFG_SEIBU_CRTC_LAYER_SCROLL_CB(_devcb) \
-	devcb = &downcast<seibu_crtc_device &>(*device).set_layer_scroll_callback(DEVCB_##_devcb);
-
-#define MCFG_SEIBU_CRTC_LAYER_SCROLL_BASE_CB(_devcb) \
-	devcb = &downcast<seibu_crtc_device &>(*device).set_layer_scroll_base_callback(DEVCB_##_devcb);
-
-#define MCFG_SEIBU_CRTC_REG_1A_CB(_devcb) \
-	devcb = &downcast<seibu_crtc_device &>(*device).set_reg_1a_callback(DEVCB_##_devcb);
-
-
-//**************************************************************************
 //  TYPE DEFINITIONS
 //**************************************************************************
 
@@ -46,23 +26,23 @@ public:
 	// construction/destruction
 	seibu_crtc_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
 
-	template <class Object> devcb_base &set_decrypt_key_callback(Object &&cb) { return m_decrypt_key_cb.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_layer_en_callback(Object &&cb) { return m_layer_en_cb.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_layer_scroll_callback(Object &&cb) { return m_layer_scroll_cb.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_reg_1a_callback(Object &&cb) { return m_reg_1a_cb.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_layer_scroll_base_callback(Object &&cb) { return m_layer_scroll_base_cb.set_callback(std::forward<Object>(cb)); }
+	auto decrypt_key_callback() { return m_decrypt_key_cb.bind(); }
+	auto layer_en_callback() { return m_layer_en_cb.bind(); }
+	auto layer_scroll_callback() { return m_layer_scroll_cb.bind(); }
+	auto reg_1a_callback() { return m_reg_1a_cb.bind(); }
+	auto layer_scroll_base_callback() { return m_layer_scroll_base_cb.bind(); }
 
 	// I/O operations
-	DECLARE_WRITE16_MEMBER( write );
-	DECLARE_WRITE16_MEMBER( write_alt );
-	DECLARE_READ16_MEMBER( read );
-	DECLARE_READ16_MEMBER( read_alt );
-	DECLARE_WRITE16_MEMBER(decrypt_key_w);
-	DECLARE_WRITE16_MEMBER(layer_en_w);
-	DECLARE_READ16_MEMBER(reg_1a_r);
-	DECLARE_WRITE16_MEMBER(reg_1a_w);
-	DECLARE_WRITE16_MEMBER(layer_scroll_w);
-	DECLARE_WRITE16_MEMBER(layer_scroll_base_w);
+	void write(offs_t offset, uint16_t data);
+	void write_alt(offs_t offset, uint16_t data);
+	uint16_t read(offs_t offset);
+	uint16_t read_alt(offs_t offset);
+	void decrypt_key_w(offs_t offset, uint16_t data, uint16_t mem_mask = ~0);
+	void layer_en_w(offs_t offset, uint16_t data, uint16_t mem_mask = ~0);
+	uint16_t reg_1a_r();
+	void reg_1a_w(offs_t offset, uint16_t data, uint16_t mem_mask = ~0);
+	void layer_scroll_w(offs_t offset, uint16_t data, uint16_t mem_mask = ~0);
+	void layer_scroll_base_w(offs_t offset, uint16_t data, uint16_t mem_mask = ~0);
 
 	void seibu_crtc_vregs(address_map &map);
 protected:

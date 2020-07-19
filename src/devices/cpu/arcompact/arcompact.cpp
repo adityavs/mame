@@ -24,28 +24,29 @@
 #include "arcompactdasm.h"
 
 
-DEFINE_DEVICE_TYPE(ARCA5, arcompact_device, "arc_a5", "ARCtangent A5")
+DEFINE_DEVICE_TYPE(ARCA5, arcompact_device, "arc_a5", "Argonaut ARCtangent A5")
 
 
-READ32_MEMBER( arcompact_device::arcompact_auxreg002_LPSTART_r) { return m_LP_START&0xfffffffe; }
-WRITE32_MEMBER(arcompact_device::arcompact_auxreg002_LPSTART_w) { m_LP_START = data&0xfffffffe; }
-READ32_MEMBER( arcompact_device::arcompact_auxreg003_LPEND_r) { return m_LP_END&0xfffffffe; }
-WRITE32_MEMBER(arcompact_device::arcompact_auxreg003_LPEND_w) { m_LP_END = data&0xfffffffe; }
+uint32_t arcompact_device::arcompact_auxreg002_LPSTART_r() { return m_LP_START&0xfffffffe; }
+void arcompact_device::arcompact_auxreg002_LPSTART_w(uint32_t data) { m_LP_START = data&0xfffffffe; }
+uint32_t arcompact_device::arcompact_auxreg003_LPEND_r() { return m_LP_END&0xfffffffe; }
+void arcompact_device::arcompact_auxreg003_LPEND_w(uint32_t data) { m_LP_END = data&0xfffffffe; }
 
-READ32_MEMBER( arcompact_device::arcompact_auxreg00a_STATUS32_r) { return 0xffffdead; /*m_status32;*/ }
+uint32_t arcompact_device::arcompact_auxreg00a_STATUS32_r() { return 0xffffdead; /*m_status32;*/ }
 
-READ32_MEMBER( arcompact_device::arcompact_auxreg025_INTVECTORBASE_r) { return m_INTVECTORBASE&0xfffffc00; }
-WRITE32_MEMBER(arcompact_device::arcompact_auxreg025_INTVECTORBASE_w) { m_INTVECTORBASE = data&0xfffffc00; }
-
-
+uint32_t arcompact_device::arcompact_auxreg025_INTVECTORBASE_r() { return m_INTVECTORBASE&0xfffffc00; }
+void arcompact_device::arcompact_auxreg025_INTVECTORBASE_w(uint32_t data) { m_INTVECTORBASE = data&0xfffffc00; }
 
 
-ADDRESS_MAP_START(arcompact_device::arcompact_auxreg_map)
-	AM_RANGE(0x000000002, 0x000000002) AM_READWRITE(arcompact_auxreg002_LPSTART_r, arcompact_auxreg002_LPSTART_w)
-	AM_RANGE(0x000000003, 0x000000003) AM_READWRITE(arcompact_auxreg003_LPEND_r, arcompact_auxreg003_LPEND_w)
-	AM_RANGE(0x000000009, 0x000000009) AM_READ(arcompact_auxreg00a_STATUS32_r) // r/o
-	AM_RANGE(0x000000025, 0x000000025) AM_READWRITE(arcompact_auxreg025_INTVECTORBASE_r, arcompact_auxreg025_INTVECTORBASE_w)
-ADDRESS_MAP_END
+
+
+void arcompact_device::arcompact_auxreg_map(address_map &map)
+{
+	map(0x000000002, 0x000000002).rw(FUNC(arcompact_device::arcompact_auxreg002_LPSTART_r), FUNC(arcompact_device::arcompact_auxreg002_LPSTART_w));
+	map(0x000000003, 0x000000003).rw(FUNC(arcompact_device::arcompact_auxreg003_LPEND_r), FUNC(arcompact_device::arcompact_auxreg003_LPEND_w));
+	map(0x000000009, 0x000000009).r(FUNC(arcompact_device::arcompact_auxreg00a_STATUS32_r)); // r/o
+	map(0x000000025, 0x000000025).rw(FUNC(arcompact_device::arcompact_auxreg025_INTVECTORBASE_r), FUNC(arcompact_device::arcompact_auxreg025_INTVECTORBASE_w));
+}
 
 #define AUX_SPACE_ADDRESS_WIDTH 32  // IO space is 32 bits of dwords
 
@@ -64,9 +65,9 @@ device_memory_interface::space_config_vector arcompact_device::memory_space_conf
 	};
 }
 
-util::disasm_interface *arcompact_device::create_disassembler()
+std::unique_ptr<util::disasm_interface> arcompact_device::create_disassembler()
 {
-	return new arcompact_disassembler;
+	return std::make_unique<arcompact_disassembler>();
 }
 
 
@@ -107,7 +108,7 @@ void arcompact_device::device_start()
 	}
 
 
-	m_icountptr = &m_icount;
+	set_icountptr(m_icount);
 }
 
 

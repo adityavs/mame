@@ -5,16 +5,23 @@
     Kitco Crowns Golf hardware
 
 **************************************************************************/
+#ifndef MAME_INCLUDES_CRGOLF_H
+#define MAME_INCLUDES_CRGOLF_H
+
+#pragma once
+
 #include "sound/msm5205.h"
 #include "machine/bankdev.h"
+#include "emupal.h"
+
 #define MASTER_CLOCK        XTAL(18'432'000)
 
 
 class crgolf_state : public driver_device
 {
 public:
-	crgolf_state(const machine_config &mconfig, device_type type, const char *tag)
-		: driver_device(mconfig, type, tag),
+	crgolf_state(const machine_config &mconfig, device_type type, const char *tag) :
+		driver_device(mconfig, type, tag),
 
 		m_videoram_a(*this, "vrama"),
 		m_videoram_b(*this, "vramb"),
@@ -48,26 +55,26 @@ public:
 	required_device<cpu_device> m_audiocpu;
 	optional_device<msm5205_device> m_msm;
 	required_device<palette_device> m_palette;
-	DECLARE_WRITE8_MEMBER(rom_bank_select_w);
-	DECLARE_READ8_MEMBER(switch_input_r);
-	DECLARE_READ8_MEMBER(analog_input_r);
-	DECLARE_WRITE8_MEMBER(switch_input_select_w);
-	DECLARE_WRITE8_MEMBER(unknown_w);
+	void rom_bank_select_w(uint8_t data);
+	uint8_t switch_input_r();
+	uint8_t analog_input_r();
+	void switch_input_select_w(uint8_t data);
+	void unknown_w(uint8_t data);
 	DECLARE_WRITE_LINE_MEMBER(color_select_w);
 	DECLARE_WRITE_LINE_MEMBER(screen_flip_w);
 	DECLARE_WRITE_LINE_MEMBER(screen_select_w);
 	DECLARE_WRITE_LINE_MEMBER(screena_enable_w);
 	DECLARE_WRITE_LINE_MEMBER(screenb_enable_w);
-	DECLARE_WRITE8_MEMBER(crgolfhi_sample_w);
-	DECLARE_READ8_MEMBER(unk_sub_02_r);
-	DECLARE_READ8_MEMBER(unk_sub_05_r);
-	DECLARE_READ8_MEMBER(unk_sub_07_r);
-	DECLARE_WRITE8_MEMBER(unk_sub_0c_w);
-	DECLARE_DRIVER_INIT(crgolfhi);
+	void crgolfhi_sample_w(offs_t offset, uint8_t data);
+	uint8_t unk_sub_02_r();
+	uint8_t unk_sub_05_r();
+	uint8_t unk_sub_07_r();
+	void unk_sub_0c_w(uint8_t data);
+	void init_crgolfhi();
 	virtual void machine_start() override;
 	virtual void machine_reset() override;
-	DECLARE_PALETTE_INIT(crgolf);
-	DECLARE_PALETTE_INIT(mastrglf);
+	void crgolf_palette(palette_device &palette) const;
+	void mastrglf_palette(palette_device &palette) const;
 	uint32_t screen_update_crgolf(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
 	void get_pens( pen_t *pens );
 	DECLARE_WRITE_LINE_MEMBER(vck_callback);
@@ -83,3 +90,5 @@ public:
 	void sound_map(address_map &map);
 	void vrambank_map(address_map &map);
 };
+
+#endif // MAME_INCLUDES_CRGOLF_H

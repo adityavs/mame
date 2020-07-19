@@ -2,7 +2,7 @@
 // copyright-holders:Joakim Larsson Edstrom
 // thanks-to: Jeff Laughton
 /*
-  Diablo 1300 series Printer TTL CPU 
+  Diablo 1300 series Printer TTL CPU
   The work is based on the RE done by Jeff Laughton http://laughtonelectronics.com/Arcana/Diablo%20CPU/DiabloCPU.html
 */
 
@@ -15,41 +15,41 @@
 //  CONFIGURABLE LOGGING
 //**************************************************************************
 #define LOG_OP   (1U <<  1)
+#define LOG_TABLE   (1U <<  2)
 
-#define VERBOSE (LOG_GENERAL | LOG_OP)
+#define VERBOSE (LOG_GENERAL | LOG_OP | LOG_TABLE)
 //#define LOG_OUTPUT_FUNC printf
 
 #include "logmacro.h"
 
-#define LOGOP(...) LOGMASKED(LOG_OP,   __VA_ARGS__)
+#define LOGOP(...)    LOGMASKED(LOG_OP,    __VA_ARGS__)
+#define LOGTABLE(...) LOGMASKED(LOG_TABLE, __VA_ARGS__)
 
 /*****************************************************************************/
 
 inline uint16_t diablo1300_cpu_device::opcode_read(uint16_t address)
 {
-	return m_direct->read_word(address);
+	return m_cache.read_word(address);
 }
 
 inline uint16_t diablo1300_cpu_device::program_read16(uint16_t address)
 {
-	return m_program->read_word(address);
+	return m_program.read_word(address);
 }
 
 inline void diablo1300_cpu_device::program_write16(uint16_t address, uint16_t data)
 {
-	m_program->write_word(address, data);
-	return;
+	m_program.write_word(address, data);
 }
 
 inline uint8_t diablo1300_cpu_device::data_read8(uint16_t address)
 {
-	return m_data->read_byte(address);
+	return m_data.read_byte(address);
 }
 
 inline void diablo1300_cpu_device::data_write8(uint16_t address, uint8_t data)
 {
-	m_data->write_byte(address, data);
-	return;
+	m_data.write_byte(address, data);
 }
 
 inline uint8_t diablo1300_cpu_device::read_reg(uint16_t reg)
@@ -62,9 +62,26 @@ inline void diablo1300_cpu_device::write_reg(uint16_t reg, uint8_t data)
 	data_write8(reg, data);
 }
 
+inline void diablo1300_cpu_device::write_port(uint16_t port, uint16_t data)
+{
+	// TODO: interact with mechanics/layout engine
+}
+
+inline uint8_t diablo1300_cpu_device::read_table(uint16_t offset)
+{
+	LOGTABLE("Read %02x from table ROM offset %04x[%04x]\n", m_table->base()[offset & 0x1ff], offset & 0x1ff, offset);
+	return m_table->base()[offset & 0x1ff];
+}
+
+inline uint16_t diablo1300_cpu_device::read_ibus()
+{
+	// TODO: get signals from other boards
+	return 0;
+}
+
 /*****************************************************************************/
 
-DEFINE_DEVICE_TYPE(DIABLO1300, diablo1300_cpu_device, "diablo1300_cpu", "DIABLO 1300 CPU")
+DEFINE_DEVICE_TYPE(DIABLO1300, diablo1300_cpu_device, "diablo1300", "DIABLO 1300")
 
 //-------------------------------------------------
 //  diablo1300_cpu_device - constructor
@@ -79,10 +96,7 @@ diablo1300_cpu_device::diablo1300_cpu_device(const machine_config &mconfig, cons
 	, m_b(0)
 	, m_carry(0)
 	, m_power_on(ASSERT_LINE)
-	, m_program(nullptr)
-	, m_data(nullptr)
-	, m_direct(nullptr)
-
+	, m_table(nullptr)
 {
 	// Allocate & setup
 }
@@ -90,9 +104,10 @@ diablo1300_cpu_device::diablo1300_cpu_device(const machine_config &mconfig, cons
 
 void diablo1300_cpu_device::device_start()
 {
-	m_program = &space(AS_PROGRAM);
-	m_data    = &space(AS_DATA);
-	m_direct  = m_program->direct<-1>();
+	space(AS_PROGRAM).cache(m_cache);
+	space(AS_PROGRAM).specific(m_program);
+	space(AS_DATA).specific(m_data);
+	m_table   = memregion("trom");
 
 	// register our state for the debugger
 	state_add(STATE_GENPC,     "GENPC",     m_pc).noshow();
@@ -101,15 +116,17 @@ void diablo1300_cpu_device::device_start()
 	state_add(DIABLO_PC,         "PC",        m_pc).mask(0x1ff);
 	state_add(DIABLO_A,          "A",         m_a).mask(0xff);
 	state_add(DIABLO_B,          "B",         m_b).mask(0xff);
+	state_add(DIABLO_CARRY,      "CARRY",     m_carry).formatstr("%1u");
 
 	/* setup regtable */
 	save_item(NAME(m_pc));
 	save_item(NAME(m_a));
 	save_item(NAME(m_b));
+	save_item(NAME(m_carry));
 	save_item(NAME(m_power_on));
 
 	// set our instruction counter
-	m_icountptr = &m_icount;
+	set_icountptr(m_icount);
 }
 
 void diablo1300_cpu_device::device_stop()
@@ -146,9 +163,9 @@ device_memory_interface::space_config_vector diablo1300_cpu_device::memory_space
 //  helper function
 //-------------------------------------------------
 
-util::disasm_interface *diablo1300_cpu_device::create_disassembler()
+std::unique_ptr<util::disasm_interface> diablo1300_cpu_device::create_disassembler()
 {
-	return new diablo1300_disassembler;
+	return std::make_unique<diablo1300_disassembler>();
 }
 
 
@@ -161,7 +178,7 @@ util::disasm_interface *diablo1300_cpu_device::create_disassembler()
 //  cycles it takes for one instruction to execute
 //-------------------------------------------------
 
-uint32_t diablo1300_cpu_device::execute_min_cycles() const
+uint32_t diablo1300_cpu_device::execute_min_cycles() const noexcept
 {
 	return 1;
 }
@@ -172,7 +189,7 @@ uint32_t diablo1300_cpu_device::execute_min_cycles() const
 //  cycles it takes for one instruction to execute
 //-------------------------------------------------
 
-uint32_t diablo1300_cpu_device::execute_max_cycles() const
+uint32_t diablo1300_cpu_device::execute_max_cycles() const noexcept
 {
 	return 1;
 }
@@ -190,7 +207,7 @@ void diablo1300_cpu_device::execute_run()
 
 	while (m_icount > 0)
 	{
-		debugger_instruction_hook(this, m_pc);
+		debugger_instruction_hook(m_pc);
 
 		if( m_power_on == ASSERT_LINE )
 		{
@@ -199,24 +216,24 @@ void diablo1300_cpu_device::execute_run()
 			switch (op & 0x0007)
 			{
 			case 0:
-				/* OUTPUT Dport, Sreg: Output register SSSS via reg A to port DDD, reg B and carry are cleared 
+				/* OUTPUT Dport, Sreg: Output register SSSS via reg A to port DDD, reg B and carry are cleared
 				   111A SSSS 0DDD RIII
-				      A                = 0: register is ORed into reg A, = 1: register is copied into reg A 
+				      A                = 0: register is ORed into reg A, = 1: register is copied into reg A
 				        SSSS           = Source register
 				              DDD      = Destination port address
 				                  R    = RAM bank select
 				                   III = 000 (opcode)
 				*/
 				LOGOP("OUTPUT dv%d, r%02X\n",
-				    (op & 0x0070) >> 4,
-				    ((op & 0x0f00) >> 8) + ((op & 0x0008) ? 0x10 : 0));
+					(op & 0x0070) >> 4,
+					((op & 0x0f00) >> 8) + ((op & 0x0008) ? 0x10 : 0));
 				m_a = read_reg(((op & 0x0f00) >> 8) + ((op & 0x0008) ? 0x10 : 0));
 				m_b = 0;
 				m_carry = 0;
 				write_port((op & 0x0070) >> 4, m_a);
 				break;
-			case 1:			
-				/* JNC Addr: Set PC to address H AAAA AAAA, reg B and carry are cleared
+			case 1:
+				/* JNC Addr: If carry not set: set PC to address H AAAA AAAA, reg B and carry are cleared
 				   AAAA AAAA 0000 HIII
 				   AAAA AAAA           = 8 low bits in Destination Address
 				                  H    = The 9th hi address bit
@@ -225,8 +242,11 @@ void diablo1300_cpu_device::execute_run()
 				LOGOP("JNC    %03X\n", ((op & 0xff00) >> 8) + ((op & 0x0008) ? 0x100 : 0));
 				m_a = (op & 0xff00) >> 8;
 				m_b = 0;
+				if (m_carry == 0)
+				{
+					m_pc = ((op & 0x0008) + m_a);
+				}
 				m_carry = 0;
-				m_pc = ((op & 0x0008) + m_a);
 				break;
 			case 2:
 				/* RST Dport : Reset Port
@@ -250,8 +270,8 @@ void diablo1300_cpu_device::execute_run()
 				                   III = 011 (opcode)
 				*/
 				LOGOP("LDBBIT r%02X, %02X\n",
-				    ((op & 0x00f0) >> 4) + ((op & 0x0008) ? 0x10 : 0),
-				    (op & 0xff00) >> 8);
+					((op & 0x00f0) >> 4) + ((op & 0x0008) ? 0x10 : 0),
+					(op & 0xff00) >> 8);
 				m_a = (op & 0xff00) >> 8;
 				m_b = read_reg(((op & 0x00f0) >> 4));
 				m_carry = (m_a & m_b) != 0 ? 1 : 0;
@@ -262,13 +282,13 @@ void diablo1300_cpu_device::execute_run()
 				case 0x4000:
 					/* XLAT Dreg: Load table data into A and reg, 0 into B
 					   II10 0000 AAAA RIII
-					             AAAA      = Register 
-						          R    = RAM bank select
-					   II              III = 01xx xxxx xxxx x100 (opcode) 
+					             AAAA      = Register
+					              R    = RAM bank select
+					   II              III = 01xx xxxx xxxx x100 (opcode)
 					*/
 					LOGOP("XLAT   r%02X\n",
-					    ((op & 0x00f0) >> 4) + ((op & 0x0008) ? 0x10 : 0));
-					m_a = read_table(m_b + m_carry);
+						((op & 0x00f0) >> 4) + ((op & 0x0008) ? 0x10 : 0));
+					m_a = read_table(m_b + (m_carry != 0 ? 0x100 : 0x000));
 					m_b = 0;
 					m_carry = 0;
 					write_reg(((op & 0x0008) != 0 ? 0x10 : 0) + ((op & 0x00f0) >> 4), m_a);
@@ -277,15 +297,15 @@ void diablo1300_cpu_device::execute_run()
 				case 0xc000:
 					/* MOVCPL Dreg, Sreg: register to register within RAM bank, acc B and carry is cleared
 					   II11 SSSS DDDD RIII
-				                SSSS           = Source Register 
-				                     DDDD      = Destination register 
-				                          R    = RAM bank select
-				           II              III = 11xx xxxx xxxx x100 (opcode)
+					            SSSS           = Source Register
+					                 DDDD      = Destination register
+					                      R    = RAM bank select
+					       II              III = 11xx xxxx xxxx x100 (opcode)
 					*/
 					LOGOP("MOVCPL r%02X, r%02X\n",
-					    ((op & 0x00f0) >> 4) + ((op & 0x0008) ? 0x10 : 0),
-					    ((op & 0x0f00) >> 8) + ((op & 0x0008) ? 0x10 : 0));
-				  	m_a = read_reg(((op & 0x0008) != 0 ? 0x10 : 0) + ((op & 0x0f00) >> 8));
+						((op & 0x00f0) >> 4) + ((op & 0x0008) ? 0x10 : 0),
+						((op & 0x0f00) >> 8) + ((op & 0x0008) ? 0x10 : 0));
+					m_a = read_reg(((op & 0x0008) != 0 ? 0x10 : 0) + ((op & 0x0f00) >> 8));
 					m_b = 0;
 					m_carry = 0;
 					write_reg(((op & 0x0008) != 0 ? 0x10 : 0) + ((op & 0x00f0) >> 4), m_a);
@@ -295,14 +315,14 @@ void diablo1300_cpu_device::execute_run()
 					/* INPUT Dreg, Sport: port to register, acc B and carry is cleared
 					   II10 SSSS DDDD RIII
 					        SSSS           = Source Port
-						     DDDD      = Destination register 
-						          R    = RAM bank select
+					         DDDD      = Destination register
+					              R    = RAM bank select
 					   II              III = 01xx xxxx xxxx x100 (opcode)
 					*/
 					LOGOP("INPUT  r%02X, dv%X\n",
-					    ((op & 0x00f0) >> 4) + ((op & 0x0008) ? 0x10 : 0),
-					    ((op & 0x0f00) >> 8));
-				  	m_a = read_port((op & 0x0f00) >> 8);
+						((op & 0x00f0) >> 4) + ((op & 0x0008) ? 0x10 : 0),
+						((op & 0x0f00) >> 8));
+					m_a = read_port((op & 0x0f00) >> 8);
 					m_b = 0;
 					m_carry = 0;
 					write_reg(((op & 0x0008) != 0 ? 0x10 : 0) + ((op & 0x00f0) >> 4), m_a);
@@ -320,8 +340,8 @@ void diablo1300_cpu_device::execute_run()
 				                   III = 101 (opcode)
 				*/
 				LOGOP("LOAD#  r%02X, %02X\n",
-				    ((op & 0x00f0) >> 4) + ((op & 0x0008) ? 0x10 : 0),
-				    (op & 0xff00) >> 8);
+					((op & 0x00f0) >> 4) + ((op & 0x0008) ? 0x10 : 0),
+					(op & 0xff00) >> 8);
 				m_a = (op & 0xff00) >> 8;
 				m_b = 0;
 				m_carry = 0;
@@ -336,8 +356,8 @@ void diablo1300_cpu_device::execute_run()
 				                   III = 110 (opcode)
 				*/
 				LOGOP("ADCCPL r%02X, r%02X\n",
-				    ((op & 0x00f0) >> 4) + ((op & 0x0008) ? 0x10 : 0),
-				    ((op & 0x0f00) >> 8) + ((op & 0x0008) ? 0x10 : 0));
+					((op & 0x00f0) >> 4) + ((op & 0x0008) ? 0x10 : 0),
+					((op & 0x0f00) >> 8) + ((op & 0x0008) ? 0x10 : 0));
 				m_a = read_reg(((op & 0x0008) != 0 ? 0x10 : 0) + ((op & 0x0f00) >> 8));
 				m_b = read_reg(((op & 0x0008) != 0 ? 0x10 : 0) + ((op & 0x00f0) >> 4));
 				m_carry = (m_a + m_b + m_carry) > 255 ? 1 : 0;
@@ -352,8 +372,8 @@ void diablo1300_cpu_device::execute_run()
 				                   III = 100 (opcode)
 				*/
 				LOGOP("ADC#   r%02X, %02X\n",
-				    ((op & 0x00f0) >> 4) + ((op & 0x0008) ? 0x10 : 0),
-				    (op & 0xff00) >> 8);
+					((op & 0x00f0) >> 4) + ((op & 0x0008) ? 0x10 : 0),
+					(op & 0xff00) >> 8);
 				m_a = (op & 0xff00) >> 8;
 				m_b = read_reg(((op & 0x0008) != 0 ? 0x10 : 0) + ((op & 0x00f0) >> 4));
 				m_carry = (m_a + m_b + m_carry) > 255 ? 1 : 0;

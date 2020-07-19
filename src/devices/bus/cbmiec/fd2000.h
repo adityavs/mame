@@ -14,16 +14,9 @@
 #include "cbmiec.h"
 #include "cpu/m6502/m65c02.h"
 #include "formats/d81_dsk.h"
+#include "imagedev/floppy.h"
 #include "machine/6522via.h"
 #include "machine/upd765.h"
-
-
-
-//**************************************************************************
-//  MACROS / CONSTANTS
-//**************************************************************************
-
-#define FD2000_TAG          "fd2000"
 
 
 
@@ -40,10 +33,10 @@ public:
 	// construction/destruction
 	fd2000_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
 
-	DECLARE_READ8_MEMBER( via_pa_r );
-	DECLARE_WRITE8_MEMBER( via_pa_w );
-	DECLARE_READ8_MEMBER( via_pb_r );
-	DECLARE_WRITE8_MEMBER( via_pb_w );
+	uint8_t via_pa_r();
+	void via_pa_w(uint8_t data);
+	uint8_t via_pb_r();
+	void via_pb_w(uint8_t data);
 
 	//DECLARE_FLOPPY_FORMATS( floppy_formats );
 
@@ -63,6 +56,8 @@ protected:
 	void cbm_iec_atn(int state) override;
 	void cbm_iec_data(int state) override;
 	void cbm_iec_reset(int state) override;
+
+	void add_common_devices(machine_config &config);
 
 	required_device<m65c02_device> m_maincpu;
 	required_device<upd765_family_device> m_fdc;

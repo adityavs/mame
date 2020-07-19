@@ -12,6 +12,7 @@
 
 #include "audio/exidy440.h"
 #include "machine/74148.h"
+#include "machine/adc0808.h"
 #include "video/vector.h"
 
 /*************************************
@@ -29,28 +30,28 @@ public:
 	vertigo_state(const machine_config &mconfig, device_type type, const char *tag) :
 		driver_device(mconfig, type, tag),
 		m_maincpu(*this, "maincpu"),
-		m_audiocpu(*this, "audiocpu"),
-		m_custom(*this, "custom"),
+		m_custom(*this, "440audio"),
 		m_ttl74148(*this, "74148"),
 		m_vector(*this, "vector"),
+		m_adc(*this, "adc"),
 		m_vectorram(*this, "vectorram")
 	{ }
 
 	void vertigo(machine_config &config);
 
-protected:
-	DECLARE_READ16_MEMBER(vertigo_io_convert);
-	DECLARE_READ16_MEMBER(vertigo_io_adc);
-	DECLARE_READ16_MEMBER(vertigo_coin_r);
-	DECLARE_WRITE16_MEMBER(vertigo_wsot_w);
-	DECLARE_WRITE16_MEMBER(vertigo_audio_w);
-	DECLARE_READ16_MEMBER(vertigo_sio_r);
-	DECLARE_WRITE16_MEMBER(vertigo_motor_w);
+private:
+	DECLARE_WRITE_LINE_MEMBER(adc_eoc_w);
+	uint16_t vertigo_io_convert(offs_t offset);
+	uint16_t vertigo_coin_r();
+	void vertigo_wsot_w(uint16_t data);
+	void vertigo_audio_w(offs_t offset, uint16_t data, uint16_t mem_mask = ~0);
+	uint16_t vertigo_sio_r();
+	void vertigo_motor_w(uint16_t data);
 	INTERRUPT_GEN_MEMBER(vertigo_interrupt);
 	TIMER_CALLBACK_MEMBER(sound_command_w);
 	DECLARE_WRITE_LINE_MEMBER(v_irq4_w);
 	DECLARE_WRITE_LINE_MEMBER(v_irq3_w);
-	TTL74148_OUTPUT_CB(update_irq);
+	void update_irq(uint8_t data);
 
 	virtual void machine_start() override;
 	virtual void machine_reset() override;
@@ -59,7 +60,6 @@ protected:
 	void vertigo_motor(address_map &map);
 	void exidy440_audio_map(address_map &map);
 
-private:
 	struct am2901
 	{
 		uint32_t ram[16];   /* internal ram */
@@ -130,14 +130,13 @@ private:
 	void update_irq_encoder(int line, int state);
 
 	required_device<cpu_device> m_maincpu;
-	required_device<cpu_device> m_audiocpu;
 	required_device<exidy440_sound_device> m_custom;
 	required_device<ttl74148_device> m_ttl74148;
 	required_device<vector_device> m_vector;
+	required_device<adc0808_device> m_adc;
 	required_shared_ptr<uint16_t> m_vectorram;
 	attotime m_irq4_time;
 	uint8_t m_irq_state;
-	uint8_t m_adc_result;
 	vproc m_vs;
 	am2901 m_bsp;
 	vector_generator m_vgen;

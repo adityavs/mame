@@ -19,6 +19,10 @@
 
  SoC has onboard keyboard scanning - matrix is 10 rows by 8 columns (KO0-KO9 and KI1-KI8)
  Piano keys have N-key rollover diodes, other buttons/switches don't
+
+ So-called program ROM actually mostly contains samples, which begin at offset 0x0b00;
+ a table at 0x085c has their starting addresses. The real microcode is likely internal,
+ since MSM6283s with different suffixes show up in other Casio keyboards.
  */
 
 #include "emu.h"
@@ -40,14 +44,15 @@ public:
 	// make slide switches usable on a keyboard
 	template <ioport_value V> DECLARE_INPUT_CHANGED_MEMBER(sw_function);
 	template <ioport_value V> DECLARE_INPUT_CHANGED_MEMBER(sw_mode);
+
 	DECLARE_CUSTOM_INPUT_MEMBER(function_in) { return m_sw_function; }
 	DECLARE_CUSTOM_INPUT_MEMBER(mode_in) { return m_sw_mode; }
 
+private:
 	void sk1_memory(address_map &map);
-protected:
+
 	virtual void driver_start() override;
 
-private:
 	ioport_value    m_sw_function = 0xfe;
 	ioport_value    m_sw_mode = 0xfe;
 };
@@ -80,19 +85,19 @@ void sk1_state::driver_start()
 }
 
 
-ADDRESS_MAP_START(sk1_state::sk1_memory)
+void sk1_state::sk1_memory(address_map &map)
+{
 	// chip selects are driven by decoding A13 and A15 with IC3 quad 2-input NOR gate
-	AM_RANGE(0x0000, 0x7fff)                   AM_ROM AM_REGION("lsi2", 0x0000)
-	AM_RANGE(0x8000, 0x83ff) AM_MIRROR(0x4000) AM_RAM
-ADDRESS_MAP_END
+	map(0x0000, 0x7fff).rom().region("lsi2", 0x0000);
+	map(0x8000, 0x83ff).mirror(0x4000).ram();
+}
 
 
-MACHINE_CONFIG_START(sk1_state::sk1)
-	MCFG_DEVICE_ADD("dummy", ADDRESS_MAP_BANK, 0) // just to attach the memory map to something until I can work out what the CPU core is
-	MCFG_DEVICE_PROGRAM_MAP(sk1_memory)
-	MCFG_ADDRESS_MAP_BANK_DATA_WIDTH(8)
-	MCFG_ADDRESS_MAP_BANK_ADDR_WIDTH(16)
-MACHINE_CONFIG_END
+void sk1_state::sk1(machine_config &config)
+{
+	// just to attach the memory map to something until I can work out what the CPU core is
+	ADDRESS_MAP_BANK(config, "dummy").set_map(&sk1_state::sk1_memory).set_data_width(8).set_addr_width(16);
+}
 
 
 INPUT_PORTS_START(sk1)
@@ -172,24 +177,24 @@ INPUT_PORTS_START(sk1)
 	PORT_BIT(0x80, IP_ACTIVE_LOW, IPT_OTHER)   PORT_NAME("G5#")
 
 	PORT_START("KO8")
-	PORT_BIT(0x0f, IP_ACTIVE_LOW, IPT_SPECIAL) PORT_CUSTOM_MEMBER(DEVICE_SELF, sk1_state, mode_in, nullptr)
+	PORT_BIT(0x0f, IP_ACTIVE_LOW, IPT_CUSTOM) PORT_CUSTOM_MEMBER(sk1_state, mode_in)
 	PORT_BIT(0x10, IP_ACTIVE_LOW, IPT_OTHER)   PORT_NAME("A5")
 	PORT_BIT(0x20, IP_ACTIVE_LOW, IPT_OTHER)   PORT_NAME("A5#")
 	PORT_BIT(0x40, IP_ACTIVE_LOW, IPT_OTHER)   PORT_NAME("B5")
 	PORT_BIT(0x80, IP_ACTIVE_LOW, IPT_OTHER)   PORT_NAME("C6")
 
 	PORT_START("KO9")
-	PORT_BIT(0x83, IP_ACTIVE_LOW, IPT_SPECIAL) PORT_CUSTOM_MEMBER(DEVICE_SELF, sk1_state, function_in, nullptr)
+	PORT_BIT(0x83, IP_ACTIVE_LOW, IPT_CUSTOM) PORT_CUSTOM_MEMBER(sk1_state, function_in)
 	PORT_BIT(0x7c, IP_ACTIVE_LOW, IPT_UNUSED)
 
 	PORT_START("TOGGLES")
-	PORT_BIT(0x01, IP_ACTIVE_LOW, IPT_OTHER)   PORT_NAME("PLAY")      PORT_CHANGED_MEMBER(DEVICE_SELF, sk1_state, sw_function<0xfe>, nullptr) // three-position function switch
-	PORT_BIT(0x02, IP_ACTIVE_LOW, IPT_OTHER)   PORT_NAME("RECORD")    PORT_CHANGED_MEMBER(DEVICE_SELF, sk1_state, sw_function<0xfd>, nullptr)
-	PORT_BIT(0x04, IP_ACTIVE_LOW, IPT_OTHER)   PORT_NAME("POWER OFF") PORT_CHANGED_MEMBER(DEVICE_SELF, sk1_state, sw_function<0x7f>, nullptr)
-	PORT_BIT(0x10, IP_ACTIVE_LOW, IPT_OTHER)   PORT_NAME("NORMAL")    PORT_CHANGED_MEMBER(DEVICE_SELF, sk1_state, sw_mode<0xfe>, nullptr) // four-position mode switch
-	PORT_BIT(0x20, IP_ACTIVE_LOW, IPT_OTHER)   PORT_NAME("SOLO 1")    PORT_CHANGED_MEMBER(DEVICE_SELF, sk1_state, sw_mode<0xfd>, nullptr)
-	PORT_BIT(0x40, IP_ACTIVE_LOW, IPT_OTHER)   PORT_NAME("SOLO 2")    PORT_CHANGED_MEMBER(DEVICE_SELF, sk1_state, sw_mode<0xfb>, nullptr)
-	PORT_BIT(0x80, IP_ACTIVE_LOW, IPT_OTHER)   PORT_NAME("CHORD")     PORT_CHANGED_MEMBER(DEVICE_SELF, sk1_state, sw_mode<0xf7>, nullptr)
+	PORT_BIT(0x01, IP_ACTIVE_LOW, IPT_OTHER)   PORT_NAME("PLAY")      PORT_CHANGED_MEMBER(DEVICE_SELF, sk1_state, sw_function<0xfe>, 0) // three-position function switch
+	PORT_BIT(0x02, IP_ACTIVE_LOW, IPT_OTHER)   PORT_NAME("RECORD")    PORT_CHANGED_MEMBER(DEVICE_SELF, sk1_state, sw_function<0xfd>, 0)
+	PORT_BIT(0x04, IP_ACTIVE_LOW, IPT_OTHER)   PORT_NAME("POWER OFF") PORT_CHANGED_MEMBER(DEVICE_SELF, sk1_state, sw_function<0x7f>, 0)
+	PORT_BIT(0x10, IP_ACTIVE_LOW, IPT_OTHER)   PORT_NAME("NORMAL")    PORT_CHANGED_MEMBER(DEVICE_SELF, sk1_state, sw_mode<0xfe>, 0) // four-position mode switch
+	PORT_BIT(0x20, IP_ACTIVE_LOW, IPT_OTHER)   PORT_NAME("SOLO 1")    PORT_CHANGED_MEMBER(DEVICE_SELF, sk1_state, sw_mode<0xfd>, 0)
+	PORT_BIT(0x40, IP_ACTIVE_LOW, IPT_OTHER)   PORT_NAME("SOLO 2")    PORT_CHANGED_MEMBER(DEVICE_SELF, sk1_state, sw_mode<0xfb>, 0)
+	PORT_BIT(0x80, IP_ACTIVE_LOW, IPT_OTHER)   PORT_NAME("CHORD")     PORT_CHANGED_MEMBER(DEVICE_SELF, sk1_state, sw_mode<0xf7>, 0)
 INPUT_PORTS_END
 
 
@@ -200,5 +205,5 @@ ROM_END
 
 } // anonymous namespace
 
-//    YEAR  NAME  PARENT  COMPAT  MACHINE  INPUT  STATE       INIT  COMPANY  FULLNAME  FLAGS
-SYST( 1985, sk1,  0,      0,      sk1,     sk1,   sk1_state,  0,    "Casio", "SK-1",   MACHINE_NO_SOUND | MACHINE_NOT_WORKING | MACHINE_SUPPORTS_SAVE )
+//    YEAR  NAME  PARENT  COMPAT  MACHINE  INPUT  CLASS      INIT        COMPANY  FULLNAME  FLAGS
+SYST( 1985, sk1,  0,      0,      sk1,     sk1,   sk1_state, empty_init, "Casio", "SK-1",   MACHINE_NO_SOUND | MACHINE_NOT_WORKING | MACHINE_SUPPORTS_SAVE )

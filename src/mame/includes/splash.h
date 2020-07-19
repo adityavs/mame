@@ -1,16 +1,22 @@
 // license:BSD-3-Clause
 // copyright-holders:Manuel Abadia, David Haywood
+#ifndef MAME_INCLUDES_SPLASH_H
+#define MAME_INCLUDES_SPLASH_H
+
+#pragma once
 
 #include "machine/eepromser.h"
 #include "machine/gen_latch.h"
 #include "machine/74259.h"
 #include "sound/msm5205.h"
+#include "emupal.h"
+#include "tilemap.h"
 
 class splash_state : public driver_device
 {
 public:
-	splash_state(const machine_config &mconfig, device_type type, const char *tag)
-		: driver_device(mconfig, type, tag),
+	splash_state(const machine_config &mconfig, device_type type, const char *tag) :
+		driver_device(mconfig, type, tag),
 		m_maincpu(*this, "maincpu"),
 		m_audiocpu(*this, "audiocpu"),
 		m_msm(*this, "msm"),
@@ -24,8 +30,17 @@ public:
 		m_spriteram(*this, "spriteram"),
 		m_protdata(*this, "protdata"),
 		m_bitmap_mode(*this, "bitmap_mode")
-		{ }
+	{ }
 
+	void roldfrog(machine_config &config);
+	void splash(machine_config &config);
+
+	void init_splash10();
+	void init_roldfrog();
+	void init_splash();
+	void init_rebus();
+
+protected:
 	required_device<cpu_device> m_maincpu;
 	required_device<cpu_device> m_audiocpu;
 	optional_device<msm5205_device> m_msm;
@@ -56,7 +71,7 @@ public:
 	int m_sound_irq;
 
 	// common
-	DECLARE_WRITE16_MEMBER(vram_w);
+	void vram_w(offs_t offset, uint16_t data, uint16_t mem_mask = ~0);
 	DECLARE_WRITE_LINE_MEMBER(coin1_lockout_w);
 	DECLARE_WRITE_LINE_MEMBER(coin2_lockout_w);
 	DECLARE_WRITE_LINE_MEMBER(coin1_counter_w);
@@ -64,22 +79,18 @@ public:
 
 	// splash specific
 	DECLARE_WRITE_LINE_MEMBER(splash_msm5205_int);
-	DECLARE_WRITE8_MEMBER(splash_adpcm_data_w);
-	DECLARE_WRITE8_MEMBER(splash_adpcm_control_w);
+	void splash_adpcm_data_w(uint8_t data);
+	void splash_adpcm_control_w(uint8_t data);
 
 	// roldfrog specific
-	DECLARE_READ16_MEMBER(roldfrog_bombs_r);
-	DECLARE_WRITE8_MEMBER(roldfrog_vblank_ack_w);
-	DECLARE_READ8_MEMBER(roldfrog_unk_r);
+	uint16_t roldfrog_bombs_r();
+	void roldfrog_vblank_ack_w(uint8_t data);
+	uint8_t roldfrog_unk_r();
 	DECLARE_WRITE_LINE_MEMBER(ym_irq);
 
 	//roldfrog and funystrp specific
-	DECLARE_WRITE8_MEMBER(sound_bank_w);
+	void sound_bank_w(uint8_t data);
 
-	DECLARE_DRIVER_INIT(splash10);
-	DECLARE_DRIVER_INIT(roldfrog);
-	DECLARE_DRIVER_INIT(splash);
-	DECLARE_DRIVER_INIT(rebus);
 	virtual void video_start() override;
 	DECLARE_MACHINE_START(splash);
 	DECLARE_MACHINE_START(roldfrog);
@@ -94,8 +105,7 @@ public:
 
 	INTERRUPT_GEN_MEMBER(roldfrog_interrupt);
 	void roldfrog_update_irq(  );
-	void roldfrog(machine_config &config);
-	void splash(machine_config &config);
+
 	void funystrp_sound_map(address_map &map);
 	void roldfrog_map(address_map &map);
 	void roldfrog_sound_io_map(address_map &map);
@@ -107,39 +117,42 @@ public:
 class funystrp_state : public splash_state
 {
 public:
-	funystrp_state(const machine_config &mconfig, device_type type, const char *tag)
-		: splash_state(mconfig, type, tag),
+	funystrp_state(const machine_config &mconfig, device_type type, const char *tag) :
+		splash_state(mconfig, type, tag),
 		m_msm1(*this, "msm1"),
 		m_msm2(*this, "msm2"),
 		m_eeprom(*this, "eeprom"),
 		m_funystrp_val(0),
 		m_funystrp_ff3cc7_val(0),
 		m_funystrp_ff3cc8_val(0)
-		{ }
+	{ }
 
-	DECLARE_READ16_MEMBER(spr_read);
-	DECLARE_WRITE16_MEMBER(spr_write);
-	DECLARE_READ8_MEMBER(int_source_r);
-	DECLARE_WRITE8_MEMBER(msm1_data_w);
-	DECLARE_WRITE8_MEMBER(msm1_interrupt_w);
-	DECLARE_WRITE8_MEMBER(msm2_interrupt_w);
-	DECLARE_WRITE8_MEMBER(msm2_data_w);
+	void funystrp(machine_config &config);
+
+	void init_funystrp();
+
+protected:
+	virtual void machine_start() override;
+
+private:
+	uint16_t spr_read(offs_t offset);
+	void spr_write(offs_t offset, uint16_t data, uint16_t mem_mask = ~0);
+	uint8_t int_source_r();
+	void msm1_data_w(uint8_t data);
+	void msm1_interrupt_w(uint8_t data);
+	void msm2_interrupt_w(uint8_t data);
+	void msm2_data_w(uint8_t data);
 	DECLARE_WRITE_LINE_MEMBER(adpcm_int1);
 	DECLARE_WRITE_LINE_MEMBER(adpcm_int2);
-	DECLARE_WRITE16_MEMBER(protection_w);
-	DECLARE_READ16_MEMBER(protection_r);
-	DECLARE_WRITE8_MEMBER(eeprom_w);
-
-	DECLARE_DRIVER_INIT(funystrp);
+	void protection_w(offs_t offset, uint16_t data, uint16_t mem_mask = ~0);
+	uint16_t protection_r(offs_t offset);
+	void eeprom_w(uint8_t data);
 
 	uint32_t screen_update_funystrp(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
 	void funystrp_draw_sprites(bitmap_ind16 &bitmap, const rectangle &cliprect);
 
-	void funystrp(machine_config &config);
 	void funystrp_map(address_map &map);
 	void funystrp_sound_io_map(address_map &map);
-private:
-	virtual void machine_start() override;
 
 	required_device<msm5205_device> m_msm1;
 	required_device<msm5205_device> m_msm2;
@@ -156,3 +169,5 @@ private:
 	int m_snd_interrupt_enable1;
 	int m_snd_interrupt_enable2;
 };
+
+#endif // MAME_INCLUDES_SPLASH_H

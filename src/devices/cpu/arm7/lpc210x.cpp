@@ -2,7 +2,7 @@
 // copyright-holders:David Haywood
 /***************************************************************************
 
- NXP (Phillips) LPC2103 series
+ NXP (Philips) LPC2103 series
  covering LPC2101, LPC2102, LPC2103*
 
  *currently only LPC2103
@@ -17,27 +17,28 @@
 
 DEFINE_DEVICE_TYPE(LPC2103, lpc210x_device, "lpc2103", "NXP LPC2103")
 
-ADDRESS_MAP_START(lpc210x_device::lpc2103_map)
-	AM_RANGE(0x00000000, 0x00007fff) AM_READWRITE(flash_r, flash_w) // 32kb internal FLASH rom
+void lpc210x_device::lpc2103_map(address_map &map)
+{
+	map(0x00000000, 0x00007fff).rw(FUNC(lpc210x_device::flash_r), FUNC(lpc210x_device::flash_w)); // 32kb internal FLASH rom
 
-	AM_RANGE(0x3FFFC000, 0x3FFFC01f) AM_READWRITE( fio_r, fio_w ) // GPIO
+	map(0x3FFFC000, 0x3FFFC01f).rw(FUNC(lpc210x_device::fio_r), FUNC(lpc210x_device::fio_w)); // GPIO
 
 
-	AM_RANGE(0x40000000, 0x40001fff) AM_RAM // 8kb internal SROM (writes should actually latch - see docs)
+	map(0x40000000, 0x40001fff).ram(); // 8kb internal SROM (writes should actually latch - see docs)
 
-	AM_RANGE(0xE0004000, 0xE000407f) AM_READWRITE( timer0_r, timer0_w)
+	map(0xE0004000, 0xE000407f).rw(FUNC(lpc210x_device::timer0_r), FUNC(lpc210x_device::timer0_w));
 
-	AM_RANGE(0xE0008000, 0xE000807f) AM_READWRITE( timer1_r, timer1_w)
+	map(0xE0008000, 0xE000807f).rw(FUNC(lpc210x_device::timer1_r), FUNC(lpc210x_device::timer1_w));
 
-	AM_RANGE(0xE002C000, 0xE002C007) AM_READWRITE( pin_r, pin_w )
+	map(0xE002C000, 0xE002C007).rw(FUNC(lpc210x_device::pin_r), FUNC(lpc210x_device::pin_w));
 
-	AM_RANGE(0xE01FC000, 0xE01FC007) AM_READWRITE( mam_r, mam_w )
-	AM_RANGE(0xE01FC080, 0xE01FC08f) AM_READWRITE( pll_r, pll_w ) // phase locked loop
-	AM_RANGE(0xE01FC100, 0xE01FC103) AM_READWRITE( apbdiv_r, apbdiv_w )
-	AM_RANGE(0xE01FC1a0, 0xE01FC1a3) AM_READWRITE( scs_r, scs_w )
+	map(0xE01FC000, 0xE01FC007).rw(FUNC(lpc210x_device::mam_r), FUNC(lpc210x_device::mam_w));
+	map(0xE01FC080, 0xE01FC08f).rw(FUNC(lpc210x_device::pll_r), FUNC(lpc210x_device::pll_w)); // phase locked loop
+	map(0xE01FC100, 0xE01FC103).rw(FUNC(lpc210x_device::apbdiv_r), FUNC(lpc210x_device::apbdiv_w));
+	map(0xE01FC1a0, 0xE01FC1a3).rw(FUNC(lpc210x_device::scs_r), FUNC(lpc210x_device::scs_w));
 
-	AM_RANGE(0xFFFFF000, 0xFFFFF2ff) AM_READWRITE( vic_r, vic_w ) // interrupt controller
-ADDRESS_MAP_END
+	map(0xFFFFF000, 0xFFFFF2ff).rw(FUNC(lpc210x_device::vic_r), FUNC(lpc210x_device::vic_w)); // interrupt controller
+}
 
 
 lpc210x_device::lpc210x_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock)
@@ -46,12 +47,12 @@ lpc210x_device::lpc210x_device(const machine_config &mconfig, const char *tag, d
 {
 }
 
-READ32_MEMBER(lpc210x_device::arm_E01FC088_r)
+uint32_t lpc210x_device::arm_E01FC088_r()
 {
 	return 0xffffffff;
 }
 
-READ32_MEMBER(lpc210x_device::flash_r)
+uint32_t lpc210x_device::flash_r(offs_t offset)
 {
 	uint32_t ret = (m_flash[offset * 4 + 3] << 24) |
 					(m_flash[offset * 4 + 2] << 16) |
@@ -60,7 +61,7 @@ READ32_MEMBER(lpc210x_device::flash_r)
 	return ret;
 }
 
-WRITE32_MEMBER(lpc210x_device::flash_w)
+void lpc210x_device::flash_w(offs_t offset, uint32_t data)
 {
 	//
 }
@@ -99,7 +100,7 @@ void lpc210x_device::device_reset()
 
 /* VIC (Vectored Interrupt Controller) */
 
-READ32_MEMBER( lpc210x_device::vic_r )
+uint32_t lpc210x_device::vic_r(offs_t offset, uint32_t mem_mask)
 {
 	switch (offset*4)
 	{
@@ -111,7 +112,7 @@ READ32_MEMBER( lpc210x_device::vic_r )
 }
 
 
-WRITE32_MEMBER( lpc210x_device::vic_w )
+void lpc210x_device::vic_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	switch (offset * 4)
 	{
@@ -122,7 +123,7 @@ WRITE32_MEMBER( lpc210x_device::vic_w )
 
 /* PIN Select block */
 
-READ32_MEMBER( lpc210x_device::pin_r )
+uint32_t lpc210x_device::pin_r(offs_t offset, uint32_t mem_mask)
 {
 	switch (offset*4)
 	{
@@ -134,7 +135,7 @@ READ32_MEMBER( lpc210x_device::pin_r )
 }
 
 
-WRITE32_MEMBER( lpc210x_device::pin_w )
+void lpc210x_device::pin_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	switch (offset * 4)
 	{
@@ -145,7 +146,7 @@ WRITE32_MEMBER( lpc210x_device::pin_w )
 
 /* MAM block (memory conttroller) */
 
-READ32_MEMBER( lpc210x_device::mam_r )
+uint32_t lpc210x_device::mam_r(offs_t offset, uint32_t mem_mask)
 {
 	switch (offset*4)
 	{
@@ -157,7 +158,7 @@ READ32_MEMBER( lpc210x_device::mam_r )
 }
 
 
-WRITE32_MEMBER( lpc210x_device::mam_w )
+void lpc210x_device::mam_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	switch (offset * 4)
 	{
@@ -168,7 +169,7 @@ WRITE32_MEMBER( lpc210x_device::mam_w )
 
 /* FIO block */
 
-READ32_MEMBER( lpc210x_device::fio_r )
+uint32_t lpc210x_device::fio_r(offs_t offset, uint32_t mem_mask)
 {
 	switch (offset*4)
 	{
@@ -180,7 +181,7 @@ READ32_MEMBER( lpc210x_device::fio_r )
 }
 
 
-WRITE32_MEMBER( lpc210x_device::fio_w )
+void lpc210x_device::fio_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	switch (offset * 4)
 	{
@@ -192,35 +193,35 @@ WRITE32_MEMBER( lpc210x_device::fio_w )
 
 /* APB Divider */
 
-READ32_MEMBER( lpc210x_device::apbdiv_r )
+uint32_t lpc210x_device::apbdiv_r(offs_t offset, uint32_t mem_mask)
 {
 	logerror("%s unhandled read from APBDIV offset %08x mem_mask %08x\n", machine().describe_context(), offset * 4, mem_mask);
 	return 0x00000000;
 }
 
 
-WRITE32_MEMBER( lpc210x_device::apbdiv_w )
+void lpc210x_device::apbdiv_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	logerror("%s unhandled write APBDIV offset %02x data %08x mem_mask %08x\n", machine().describe_context(),offset * 4, data, mem_mask);
 }
 
 /* Syscon misc registers */
 
-READ32_MEMBER( lpc210x_device::scs_r )
+uint32_t lpc210x_device::scs_r(offs_t offset, uint32_t mem_mask)
 {
 	logerror("%s unhandled read from SCS offset %08x mem_mask %08x\n", machine().describe_context(),offset * 4, mem_mask);
 	return 0x00000000;
 }
 
 
-WRITE32_MEMBER( lpc210x_device::scs_w )
+void lpc210x_device::scs_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	logerror("%s unhandled write SCS offset %02x data %08x mem_mask %08x\n", machine().describe_context(),offset * 4, data, mem_mask);
 }
 
 /* PLL Phase Locked Loop */
 
-READ32_MEMBER( lpc210x_device::pll_r )
+uint32_t lpc210x_device::pll_r(offs_t offset, uint32_t mem_mask)
 {
 	switch (offset*4)
 	{
@@ -232,7 +233,7 @@ READ32_MEMBER( lpc210x_device::pll_r )
 }
 
 
-WRITE32_MEMBER( lpc210x_device::pll_w )
+void lpc210x_device::pll_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	switch (offset * 4)
 	{
@@ -244,7 +245,7 @@ WRITE32_MEMBER( lpc210x_device::pll_w )
 
 /* Timers */
 
-uint32_t lpc210x_device::read_timer(address_space &space, int timer, int offset, uint32_t mem_mask)
+uint32_t lpc210x_device::read_timer(int timer, int offset, uint32_t mem_mask)
 {
 	switch (offset*4)
 	{
@@ -259,7 +260,7 @@ uint32_t lpc210x_device::read_timer(address_space &space, int timer, int offset,
 }
 
 
-void lpc210x_device::write_timer(address_space &space, int timer, int offset, uint32_t data, uint32_t mem_mask)
+void lpc210x_device::write_timer(int timer, int offset, uint32_t data, uint32_t mem_mask)
 {
 	switch (offset * 4)
 	{
@@ -275,5 +276,6 @@ void lpc210x_device::write_timer(address_space &space, int timer, int offset, ui
 
 
 
-MACHINE_CONFIG_START(lpc210x_device::device_add_mconfig)
-MACHINE_CONFIG_END
+void lpc210x_device::device_add_mconfig(machine_config &config)
+{
+}

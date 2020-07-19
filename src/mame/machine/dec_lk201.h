@@ -7,6 +7,9 @@
 
 #include "sound/beep.h"
 
+#include "diserial.h"
+
+
 //**************************************************************************
 //  MACROS / CONSTANTS
 //**************************************************************************
@@ -30,12 +33,6 @@
 // TSR - Timer Status Register
 #define TSR_OCFL 0x40 // TSR (68HC05 output compare flag)
 
-//**************************************************************************
-//  INTERFACE CONFIGURATION MACROS
-//**************************************************************************
-
-#define MCFG_LK201_TX_HANDLER(_cb) \
-	devcb = &downcast<lk201_device &>(*device).set_tx_handler(DEVCB_##_cb);
 
 //**************************************************************************
 //  TYPE DEFINITIONS
@@ -49,18 +46,18 @@ public:
 	// construction/destruction
 	lk201_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
 
-	DECLARE_READ8_MEMBER(ddr_r);
-	DECLARE_WRITE8_MEMBER(ddr_w);
-	DECLARE_READ8_MEMBER(ports_r);
-	DECLARE_WRITE8_MEMBER(ports_w);
-	DECLARE_READ8_MEMBER(sci_r);
-	DECLARE_WRITE8_MEMBER(sci_w);
-	DECLARE_READ8_MEMBER(spi_r);
-	DECLARE_WRITE8_MEMBER(spi_w);
-	DECLARE_READ8_MEMBER(timer_r);
-	DECLARE_WRITE8_MEMBER(timer_w);
+	uint8_t ddr_r(offs_t offset);
+	void ddr_w(offs_t offset, uint8_t data);
+	uint8_t ports_r(offs_t offset);
+	void ports_w(offs_t offset, uint8_t data);
+	uint8_t sci_r(offs_t offset);
+	void sci_w(offs_t offset, uint8_t data);
+	uint8_t spi_r(offs_t offset);
+	void spi_w(offs_t offset, uint8_t data);
+	uint8_t timer_r(offs_t offset);
+	void timer_w(offs_t offset, uint8_t data);
 
-	template <class Object> devcb_base &set_tx_handler(Object &&wr) { return m_tx_handler.set_callback(std::forward<Object>(wr)); }
+	auto tx_handler() { return m_tx_handler.bind(); }
 
 	void lk201_map(address_map &map);
 protected:
@@ -131,7 +128,7 @@ private:
 	required_ioport m_kbd16;
 	required_ioport m_kbd17;
 
-	void send_port(address_space &space, uint8_t offset, uint8_t data);
+	void send_port(uint8_t offset, uint8_t data);
 	void update_interrupts();
 
 	int m_kbd_state;

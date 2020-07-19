@@ -6,14 +6,15 @@
 
 DEFINE_DEVICE_TYPE(NEXTKBD, nextkbd_device, "nextkbd", "NeXT Keyboard")
 
-ADDRESS_MAP_START(nextkbd_device::amap)
-	AM_RANGE(0x0, 0x3) AM_READWRITE8(status_snd_r, ctrl_snd_w, 0xff000000)
-	AM_RANGE(0x0, 0x3) AM_READWRITE8(status_kms_r, ctrl_kms_w, 0x00ff0000)
-	AM_RANGE(0x0, 0x3) AM_READWRITE8(status_dma_r, ctrl_dma_w, 0x0000ff00)
-	AM_RANGE(0x0, 0x3) AM_READWRITE8(status_cmd_r, ctrl_cmd_w, 0x000000ff)
-	AM_RANGE(0x4, 0x7) AM_READWRITE(cdata_r,  cdata_w)
-	AM_RANGE(0x8, 0xb) AM_READWRITE(kmdata_r, kmdata_w)
-ADDRESS_MAP_END
+void nextkbd_device::amap(address_map &map)
+{
+	map(0x0, 0x0).rw(FUNC(nextkbd_device::status_snd_r), FUNC(nextkbd_device::ctrl_snd_w));
+	map(0x1, 0x1).rw(FUNC(nextkbd_device::status_kms_r), FUNC(nextkbd_device::ctrl_kms_w));
+	map(0x2, 0x2).rw(FUNC(nextkbd_device::status_dma_r), FUNC(nextkbd_device::ctrl_dma_w));
+	map(0x3, 0x3).rw(FUNC(nextkbd_device::status_cmd_r), FUNC(nextkbd_device::ctrl_cmd_w));
+	map(0x4, 0x7).rw(FUNC(nextkbd_device::cdata_r), FUNC(nextkbd_device::cdata_w));
+	map(0x8, 0xb).rw(FUNC(nextkbd_device::kmdata_r), FUNC(nextkbd_device::kmdata_w));
+}
 
 nextkbd_device::nextkbd_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock) :
 	device_t(mconfig, NEXTKBD, tag, owner, clock),
@@ -160,37 +161,37 @@ bool nextkbd_device::fifo_empty() const
 	return !fifo_size;
 }
 
-READ8_MEMBER( nextkbd_device::status_snd_r )
+uint8_t nextkbd_device::status_snd_r()
 {
 	logerror("status_snd_r %02x %s\n", ctrl_snd, machine().describe_context());
 	return ctrl_snd;
 }
 
-READ8_MEMBER( nextkbd_device::status_kms_r )
+uint8_t nextkbd_device::status_kms_r()
 {
 	logerror("status_kms_r %02x %s\n", ctrl_kms, machine().describe_context());
 	return ctrl_kms;
 }
 
-READ8_MEMBER( nextkbd_device::status_dma_r )
+uint8_t nextkbd_device::status_dma_r()
 {
 	logerror("status_dma_r %02x %s\n", ctrl_dma, machine().describe_context());
 	return ctrl_dma;
 }
 
-READ8_MEMBER( nextkbd_device::status_cmd_r )
+uint8_t nextkbd_device::status_cmd_r()
 {
 	logerror("status_cmd_r %02x %s\n", ctrl_cmd, machine().describe_context());
 	return ctrl_cmd;
 }
 
-READ32_MEMBER( nextkbd_device::cdata_r )
+uint32_t nextkbd_device::cdata_r(offs_t offset, uint32_t mem_mask)
 {
 	logerror("cdata_r %08x @ %08x %s\n", cdata, mem_mask, machine().describe_context());
 	return cdata;
 }
 
-READ32_MEMBER( nextkbd_device::kmdata_r )
+uint32_t nextkbd_device::kmdata_r(offs_t offset, uint32_t mem_mask)
 {
 	uint8_t old = ctrl_kms;
 	ctrl_kms &= ~(C_KBD_INTERRUPT|C_KBD_DATA);
@@ -200,7 +201,7 @@ READ32_MEMBER( nextkbd_device::kmdata_r )
 	return kmdata;
 }
 
-WRITE8_MEMBER( nextkbd_device::ctrl_snd_w )
+void nextkbd_device::ctrl_snd_w(uint8_t data)
 {
 	uint8_t old = ctrl_snd;
 	ctrl_snd = (ctrl_snd & ~C_SOUND_WMASK) | (data & C_SOUND_WMASK);
@@ -209,7 +210,7 @@ WRITE8_MEMBER( nextkbd_device::ctrl_snd_w )
 	logerror("ctrl_snd_w %02x | %02x %s\n", ctrl_snd, diff, machine().describe_context());
 }
 
-WRITE8_MEMBER( nextkbd_device::ctrl_kms_w )
+void nextkbd_device::ctrl_kms_w(uint8_t data)
 {
 	uint8_t old = ctrl_kms;
 	ctrl_kms = (ctrl_kms & ~C_KMS_WMASK) | (data & C_KMS_WMASK);
@@ -218,7 +219,7 @@ WRITE8_MEMBER( nextkbd_device::ctrl_kms_w )
 	logerror("ctrl_kms_w %02x | %02x %s\n", ctrl_kms, diff, machine().describe_context());
 }
 
-WRITE8_MEMBER( nextkbd_device::ctrl_dma_w )
+void nextkbd_device::ctrl_dma_w(uint8_t data)
 {
 	uint8_t old = ctrl_dma;
 	ctrl_dma = (ctrl_dma & ~C_WMASK) | (data & C_WMASK);
@@ -227,27 +228,27 @@ WRITE8_MEMBER( nextkbd_device::ctrl_dma_w )
 	logerror("ctrl_dma_w %02x | %02x %s\n", ctrl_dma, diff, machine().describe_context());
 }
 
-WRITE8_MEMBER( nextkbd_device::ctrl_cmd_w )
+void nextkbd_device::ctrl_cmd_w(uint8_t data)
 {
 	ctrl_cmd = data;
 	logerror("ctrl_cmd_w %02x %s\n", ctrl_cmd, machine().describe_context());
 }
 
-WRITE32_MEMBER( nextkbd_device::cdata_w )
+void nextkbd_device::cdata_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	COMBINE_DATA(&cdata);
 	logerror("cdata_w %08x @ %08x %s\n", data, mem_mask, machine().describe_context());
 	handle_command();
 }
 
-WRITE32_MEMBER( nextkbd_device::kmdata_w )
+void nextkbd_device::kmdata_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	logerror("kmdata_w %08x @ %08x %s\n", data, mem_mask, machine().describe_context());
 }
 
 INPUT_CHANGED_MEMBER( nextkbd_device::update )
 {
-	int bank = (int)(uintptr_t)param;
+	int bank = param;
 	switch(bank) {
 	case 0: case 1: case 2: {
 		int index;

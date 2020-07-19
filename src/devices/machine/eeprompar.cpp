@@ -140,7 +140,7 @@ void eeprom_parallel_28xx_device::device_reset()
 //  read/write - read/write handlers
 //-------------------------------------------------
 
-WRITE8_MEMBER(eeprom_parallel_28xx_device::write)
+void eeprom_parallel_28xx_device::write(offs_t offset, uint8_t data)
 {
 	if (m_oe == 0)
 	{
@@ -157,7 +157,7 @@ WRITE8_MEMBER(eeprom_parallel_28xx_device::write)
 	}
 }
 
-READ8_MEMBER(eeprom_parallel_28xx_device::read)
+uint8_t eeprom_parallel_28xx_device::read(address_space &space, offs_t offset)
 {
 	if (m_oe == 1)
 	{
@@ -192,9 +192,9 @@ WRITE_LINE_MEMBER(eeprom_parallel_28xx_device::oe_w)
 //  /OE line through external flip-flop
 //-------------------------------------------------
 
-WRITE8_MEMBER(eeprom_parallel_28xx_device::unlock_write8) { oe_w(1); }
-WRITE16_MEMBER(eeprom_parallel_28xx_device::unlock_write16) { oe_w(1); }
-WRITE32_MEMBER(eeprom_parallel_28xx_device::unlock_write32) { oe_w(1); }
+void eeprom_parallel_28xx_device::unlock_write8(uint8_t data) { oe_w(1); }
+void eeprom_parallel_28xx_device::unlock_write16(uint16_t data) { oe_w(1); }
+void eeprom_parallel_28xx_device::unlock_write32(uint32_t data) { oe_w(1); }
 
 
 //**************************************************************************
@@ -204,11 +204,11 @@ WRITE32_MEMBER(eeprom_parallel_28xx_device::unlock_write32) { oe_w(1); }
 // macro for defining a new device class
 #define DEFINE_PARALLEL_EEPROM_DEVICE(_baseclass, _lowercase, _uppercase, _bits, _cells) \
 eeprom_parallel_##_lowercase##_device::eeprom_parallel_##_lowercase##_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock) \
-	: eeprom_parallel_##_baseclass##_device(mconfig, EEPROM_PARALLEL_##_uppercase, tag, owner) \
+	: eeprom_parallel_##_baseclass##_device(mconfig, EEPROM_##_uppercase, tag, owner) \
 { \
-	set_size(_cells, _bits); \
+	size(_cells, _bits); \
 } \
-DEFINE_DEVICE_TYPE(EEPROM_PARALLEL_##_uppercase, eeprom_parallel_##_lowercase##_device, #_lowercase, "Parallel EEPROM " #_uppercase " (" #_cells "x" #_bits ")")
+DEFINE_DEVICE_TYPE(EEPROM_##_uppercase, eeprom_parallel_##_lowercase##_device, #_lowercase, "Parallel EEPROM " #_uppercase " (" #_cells "x" #_bits ")")
 
 // standard 28XX class of 8-bit EEPROMs
 DEFINE_PARALLEL_EEPROM_DEVICE(28xx, 2804, 2804, 8, 512)

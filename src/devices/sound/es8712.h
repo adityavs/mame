@@ -9,22 +9,7 @@
 
 #include "machine/74157.h"
 #include "sound/msm5205.h"
-
-//**************************************************************************
-//  INTERFACE CONFIGURATION MACROS
-//**************************************************************************
-
-#define MCFG_ES8712_ADD(_tag, _clock) \
-	MCFG_DEVICE_ADD(_tag, ES8712, _clock)
-#define MCFG_ES8712_REPLACE(_tag, _clock) \
-	MCFG_DEVICE_REPLACE(_tag, ES8712, _clock)
-#define MCFG_ES8712_RESET_HANDLER(_devcb) \
-	devcb = &downcast<es8712_device &>(*device).set_reset_handler(DEVCB_##_devcb);
-#define MCFG_ES8712_MSM_WRITE_CALLBACK(_devcb) \
-	devcb = &downcast<es8712_device &>(*device).set_msm_write_callback(DEVCB_##_devcb);
-#define MCFG_ES8712_MSM_TAG(_msmtag) \
-	downcast<es8712_device &>(*device).set_msm_tag(("^" _msmtag));
-
+#include "dirom.h"
 
 //**************************************************************************
 //  TYPE DEFINITIONS
@@ -33,21 +18,21 @@
 
 // ======================> es8712_device
 
-class es8712_device : public device_t, public device_rom_interface
+class es8712_device : public device_t, public device_rom_interface<20> // TODO : 20 address bits?
 {
 public:
 	es8712_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
 
 	// configuration
-	void set_msm_tag(const char *tag) { m_msm.set_tag(tag); }
-	template<class Object> devcb_base &set_reset_handler(Object &&cb) { return m_reset_handler.set_callback(std::forward<Object>(cb)); }
-	template<class Object> devcb_base &set_msm_write_callback(Object &&cb) { return m_msm_write_cb.set_callback(std::forward<Object>(cb)); }
+	template <typename T> void set_msm_tag(T &&tag) { m_msm.set_tag(std::forward<T>(tag)); }
+	auto reset_handler() { return m_reset_handler.bind(); }
+	auto msm_write_handler() { return m_msm_write_cb.bind(); }
 
-	DECLARE_WRITE8_MEMBER(write);
-	DECLARE_READ8_MEMBER(read);
-	DECLARE_WRITE8_MEMBER(msm_w);
-	DECLARE_WRITE_LINE_MEMBER(msm_int);
-	
+	void write(offs_t offset, uint8_t data);
+	uint8_t read(offs_t offset);
+	void msm_w(offs_t offset, uint8_t data);
+	void msm_int(int state);
+
 	void play();
 
 protected:
@@ -63,7 +48,7 @@ private:
 
 	required_device<hct157_device> m_adpcm_select;
 	optional_device<msm5205_device> m_msm;
-	
+
 	// device callbacks
 	devcb_write_line m_reset_handler;
 	devcb_write8 m_msm_write_cb;

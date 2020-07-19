@@ -33,7 +33,6 @@ todo:
 - vdp engine -- make run at correct speed
 - vr/hr/fh flags: double-check all of that
 - make vdp engine work in exp. ram
-- fix save state support
 */
 
 #include "emu.h"
@@ -73,7 +72,7 @@ enum
 
 #define EXPMEM_OFFSET 0x20000
 
-#define LONG_WIDTH (512 + 32)
+#define V9938_LONG_WIDTH (512 + 32)
 
 static const char *const v9938_modes[] = {
 	"TEXT 1", "MULTICOLOR", "GRAPHIC 1", "GRAPHIC 2", "GRAPHIC 3",
@@ -89,10 +88,11 @@ static const char *const v9938_modes[] = {
 Similar to the TMS9928, the V9938 has an own address space. It can handle
 at most 192 KiB RAM (128 KiB base, 64 KiB expansion).
 */
-ADDRESS_MAP_START(v99x8_device::memmap)
-	ADDRESS_MAP_GLOBAL_MASK(0x3ffff)
-	AM_RANGE(0x00000, 0x2ffff) AM_RAM
-ADDRESS_MAP_END
+void v99x8_device::memmap(address_map &map)
+{
+	map.global_mask(0x3ffff);
+	map(0x00000, 0x2ffff).ram();
+}
 
 
 // devices
@@ -107,6 +107,7 @@ v99x8_device::v99x8_device(const machine_config &mconfig, device_type type, cons
 	device_video_interface(mconfig, *this),
 	m_space_config("vram", ENDIANNESS_BIG, 8, 18),
 	m_model(model),
+	m_pal_config(false),
 	m_offset_x(0),
 	m_offset_y(0),
 	m_visible_y(0),
@@ -149,6 +150,25 @@ device_memory_interface::space_config_vector v99x8_device::memory_space_config()
 	return space_config_vector {
 		std::make_pair(AS_DATA, &m_space_config)
 	};
+}
+
+
+void v99x8_device::device_config_complete()
+{
+	if (!has_screen())
+		return;
+
+	if (!screen().refresh_attoseconds())
+		screen().set_raw(clock(),
+			HTOTAL,
+			0,
+			HVISIBLE - 1,
+			(m_pal_config ? VTOTAL_PAL : VTOTAL_NTSC) * 2,
+			VERTICAL_ADJUST * 2,
+			(m_pal_config ? VVISIBLE_PAL : VVISIBLE_NTSC) * 2 - 1 - VERTICAL_ADJUST * 2);
+
+	if (!screen().has_screen_update())
+		screen().set_screen_update(*this, FUNC(v99x8_device::screen_update));
 }
 
 
@@ -252,20 +272,35 @@ void v99x8_device::configure_pal_ntsc()
 
 
 /*
-    Driver-specific function: update the vdp mouse state
+    Colorbus inputs
+    vdp will process mouse deltas only if it is in mouse mode
+    Reg 8: MS LP x x x x x x
 */
-void v99x8_device::update_mouse_state(int mx_delta, int my_delta, int button_state)
+void v99x8_device::colorbus_x_input(int mx_delta)
 {
-	// save button state
-	m_button_state = (button_state << 6) & 0xc0;
-
 	if ((m_cont_reg[8] & 0xc0) == 0x80)
-	{   // vdp will process mouse deltas only if it is in mouse mode
+	{
 		m_mx_delta += mx_delta;
-		m_my_delta += my_delta;
+		if (m_mx_delta < -127) m_mx_delta = -127;
+		if (m_mx_delta > 127) m_mx_delta = 127;
 	}
 }
 
+void v99x8_device::colorbus_y_input(int my_delta)
+{
+	if ((m_cont_reg[8] & 0xc0) == 0x80)
+	{
+		m_my_delta += my_delta;
+		if (m_my_delta < -127) m_my_delta = -127;
+		if (m_my_delta > 127) m_my_delta = 127;
+	}
+}
+
+void v99x8_device::colorbus_button_input(bool switch1_pressed, bool switch2_pressed)
+{
+	// save button state
+	m_button_state = (switch2_pressed? 0x80 : 0x00) | (switch1_pressed? 0x40 : 0x00);
+}
 
 
 /***************************************************************************
@@ -348,7 +383,7 @@ uint32_t v99x8_device::screen_update(screen_device &screen, bitmap_rgb32 &bitmap
 	return 0;
 }
 
-READ8_MEMBER( v99x8_device::read )
+uint8_t v99x8_device::read(offs_t offset)
 {
 	switch (offset & 3)
 	{
@@ -358,7 +393,7 @@ READ8_MEMBER( v99x8_device::read )
 	return 0xff;
 }
 
-WRITE8_MEMBER( v99x8_device::write )
+void v99x8_device::write(offs_t offset, uint8_t data)
 {
 	switch (offset & 3)
 	{
@@ -607,9 +642,8 @@ void v99x8_device::device_start()
 	save_item(NAME(m_stat_reg));
 	save_item(NAME(m_cont_reg));
 	save_item(NAME(m_read_ahead));
-	//  save_item(NAME(m_vram));
-	//  if ( m_vram_exp != nullptr )
-	//      save_pointer(NAME(m_vram_exp), 0x10000);
+	save_item(NAME(m_v9958_sp_mode));
+	save_item(NAME(m_address_latch));
 	save_item(NAME(m_int_state));
 	save_item(NAME(m_scanline));
 	save_item(NAME(m_blink));
@@ -679,7 +713,6 @@ void v99x8_device::device_reset()
 	configure_pal_ntsc();
 	set_screen_parameters();
 }
-
 
 void v99x8_device::reset_palette()
 {
@@ -888,7 +921,7 @@ void v99x8_device::default_border(uint32_t *ln)
 	int i;
 
 	pen = pen16(m_cont_reg[7] & 0x0f);
-	i = LONG_WIDTH;
+	i = V9938_LONG_WIDTH;
 	while (i--) *ln++ = pen;
 }
 
@@ -898,7 +931,7 @@ void v99x8_device::graphic7_border(uint32_t *ln)
 	int i;
 
 	pen = pen256(m_cont_reg[7]);
-	i = LONG_WIDTH;
+	i = V9938_LONG_WIDTH;
 	while (i--) *ln++ = pen;
 }
 
@@ -910,7 +943,7 @@ void v99x8_device::graphic5_border(uint32_t *ln)
 
 	pen1 = pen16(m_cont_reg[7] & 0x03);
 	pen0 = pen16((m_cont_reg[7] >> 2) & 0x03);
-	i = LONG_WIDTH / 2;
+	i = V9938_LONG_WIDTH / 2;
 	while (i--) { *ln++ = pen0; *ln++ = pen1; }
 }
 
@@ -3021,5 +3054,47 @@ void v99x8_device::update_command()
 	{
 		m_vdp_ops_count=13662;
 		if(m_vdp_engine) (this->*m_vdp_engine)();
+	}
+}
+
+void v99x8_device::device_post_load() // TODO: is there a better way to restore this?
+{
+	switch(m_mmc.CM)
+	{
+	case CM_ABRT:
+	case CM_POINT:
+	case CM_PSET:
+		m_vdp_engine=nullptr;
+		break;
+	case CM_SRCH:
+		m_vdp_engine=&v99x8_device::srch_engine;
+		break;
+	case CM_LINE:
+		m_vdp_engine=&v99x8_device::line_engine;
+		break;
+	case CM_LMMV:
+		m_vdp_engine=&v99x8_device::lmmv_engine;
+		break;
+	case CM_LMMM:
+		m_vdp_engine=&v99x8_device::lmmm_engine;
+		break;
+	case CM_LMCM:
+		m_vdp_engine=&v99x8_device::lmcm_engine;
+		break;
+	case CM_LMMC:
+		m_vdp_engine=&v99x8_device::lmmc_engine;
+		break;
+	case CM_HMMV:
+		m_vdp_engine=&v99x8_device::hmmv_engine;
+		break;
+	case CM_HMMM:
+		m_vdp_engine=&v99x8_device::hmmm_engine;
+		break;
+	case CM_YMMM:
+		m_vdp_engine=&v99x8_device::ymmm_engine;
+		break;
+	case CM_HMMC:
+		m_vdp_engine=&v99x8_device::hmmc_engine;
+		break;
 	}
 }

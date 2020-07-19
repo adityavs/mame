@@ -14,23 +14,23 @@
 #include "bus/generic/carts.h"
 #include "bus/generic/slot.h"
 #include "cpu/z80/z80.h"
-#include "cpu/z80/z80daisy.h"
+#include "machine/z80daisy.h"
 #include "imagedev/cassette.h"
-#include "imagedev/flopdrv.h"
+#include "imagedev/floppy.h"
 #include "machine/bankdev.h"
 #include "machine/i8255.h"
 #include "machine/timer.h"
 #include "machine/wd_fdc.h"
 #include "machine/z80ctc.h"
-#include "machine/z80dart.h"
 #include "machine/z80dma.h"
+#include "machine/z80sio.h"
 #include "sound/ay8910.h"
-#include "sound/wave.h"
 #include "sound/ym2151.h"
 #include "video/mc6845.h"
 
 #include "formats/x1_tap.h"
 
+#include "emupal.h"
 #include "screen.h"
 
 
@@ -56,7 +56,7 @@ class x1_state : public driver_device
 public:
 	x1_state(const machine_config &mconfig, device_type type, const char *tag) :
 		driver_device(mconfig, type, tag),
-		m_maincpu(*this,"x1_cpu"),
+		m_maincpu(*this, "x1_cpu"),
 		m_cassette(*this, "cassette"),
 		m_cart(*this, "cartslot"),
 		m_fdc(*this, "fdc"),
@@ -67,6 +67,8 @@ public:
 		m_palette(*this, "palette"),
 		m_dma(*this, "dma"),
 		m_iobank(*this, "iobank"),
+		m_ym(*this, "ym"),
+		m_sound_sw(*this, "SOUND_SW"),
 		m_tvram(*this, "tvram"),
 		m_avram(*this, "avram"),
 		m_kvram(*this, "kvram"),
@@ -78,7 +80,7 @@ public:
 
 	DECLARE_FLOPPY_FORMATS(floppy_formats);
 
-	required_device<cpu_device> m_maincpu;
+	required_device<z80_device> m_maincpu;
 	required_device<cassette_image_device> m_cassette;
 	required_device<generic_slot_device> m_cart;
 	required_device<mb8877_device> m_fdc;
@@ -86,56 +88,55 @@ public:
 	required_device<mc6845_device> m_crtc;
 	required_device<screen_device> m_screen;
 
-	DECLARE_READ8_MEMBER(x1_mem_r);
-	DECLARE_WRITE8_MEMBER(x1_mem_w);
-	DECLARE_READ8_MEMBER(x1_sub_io_r);
-	DECLARE_WRITE8_MEMBER(x1_sub_io_w);
-	DECLARE_READ8_MEMBER(x1_rom_r);
-	DECLARE_WRITE8_MEMBER(x1_rom_w);
-	DECLARE_WRITE8_MEMBER(x1_rom_bank_0_w);
-	DECLARE_WRITE8_MEMBER(x1_rom_bank_1_w);
-	DECLARE_READ8_MEMBER(x1_fdc_r);
-	DECLARE_WRITE8_MEMBER(x1_fdc_w);
-	DECLARE_READ8_MEMBER(x1_pcg_r);
-	DECLARE_WRITE8_MEMBER(x1_pcg_w);
-	DECLARE_WRITE8_MEMBER(x1_pal_r_w);
-	DECLARE_WRITE8_MEMBER(x1_pal_g_w);
-	DECLARE_WRITE8_MEMBER(x1_pal_b_w);
-	DECLARE_READ8_MEMBER(x1_ex_gfxram_r);
-	DECLARE_WRITE8_MEMBER(x1_ex_gfxram_w);
-	DECLARE_WRITE8_MEMBER(x1_scrn_w);
-	DECLARE_WRITE8_MEMBER(x1_pri_w);
-	DECLARE_WRITE8_MEMBER(x1_6845_w);
-	DECLARE_READ8_MEMBER(x1_kanji_r);
-	DECLARE_WRITE8_MEMBER(x1_kanji_w);
-	DECLARE_READ8_MEMBER(x1_emm_r);
-	DECLARE_WRITE8_MEMBER(x1_emm_w);
-	DECLARE_READ8_MEMBER(x1turbo_pal_r);
-	DECLARE_READ8_MEMBER(x1turbo_txpal_r);
-	DECLARE_READ8_MEMBER(x1turbo_txdisp_r);
-	DECLARE_READ8_MEMBER(x1turbo_gfxpal_r);
-	DECLARE_WRITE8_MEMBER(x1turbo_pal_w);
-	DECLARE_WRITE8_MEMBER(x1turbo_txpal_w);
-	DECLARE_WRITE8_MEMBER(x1turbo_txdisp_w);
-	DECLARE_WRITE8_MEMBER(x1turbo_gfxpal_w);
-	DECLARE_WRITE8_MEMBER(x1turbo_blackclip_w);
-	DECLARE_READ8_MEMBER(x1turbo_mem_r);
-	DECLARE_WRITE8_MEMBER(x1turbo_mem_w);
-	DECLARE_WRITE8_MEMBER(x1turboz_4096_palette_w);
-	DECLARE_READ8_MEMBER(x1turboz_blackclip_r);
-	DECLARE_READ8_MEMBER(x1turbo_bank_r);
-	DECLARE_WRITE8_MEMBER(x1turbo_bank_w);
-	DECLARE_READ8_MEMBER(x1_porta_r);
-	DECLARE_READ8_MEMBER(x1_portb_r);
-	DECLARE_READ8_MEMBER(x1_portc_r);
-	DECLARE_WRITE8_MEMBER(x1_porta_w);
-	DECLARE_WRITE8_MEMBER(x1_portb_w);
-	DECLARE_WRITE8_MEMBER(x1_portc_w);
-	DECLARE_DRIVER_INIT(x1_kanji);
-	DECLARE_MACHINE_START(x1);
+	uint8_t x1_mem_r(offs_t offset);
+	void x1_mem_w(offs_t offset, uint8_t data);
+	uint8_t x1_sub_io_r();
+	void x1_sub_io_w(uint8_t data);
+	uint8_t x1_rom_r();
+	void x1_rom_w(offs_t offset, uint8_t data);
+	void x1_rom_bank_0_w(uint8_t data);
+	void x1_rom_bank_1_w(uint8_t data);
+	uint8_t x1_fdc_r(offs_t offset);
+	void x1_fdc_w(offs_t offset, uint8_t data);
+	uint8_t x1_pcg_r(offs_t offset);
+	void x1_pcg_w(offs_t offset, uint8_t data);
+	void x1_pal_r_w(uint8_t data);
+	void x1_pal_g_w(uint8_t data);
+	void x1_pal_b_w(uint8_t data);
+	uint8_t x1_ex_gfxram_r(offs_t offset);
+	void x1_ex_gfxram_w(offs_t offset, uint8_t data);
+	void x1_scrn_w(uint8_t data);
+	void x1_pri_w(uint8_t data);
+	void x1_6845_w(offs_t offset, uint8_t data);
+	uint8_t x1_kanji_r(offs_t offset);
+	void x1_kanji_w(offs_t offset, uint8_t data);
+	uint8_t x1_emm_r(offs_t offset);
+	void x1_emm_w(offs_t offset, uint8_t data);
+	uint8_t x1turbo_pal_r();
+	uint8_t x1turbo_txpal_r(offs_t offset);
+	uint8_t x1turbo_txdisp_r();
+	uint8_t x1turbo_gfxpal_r();
+	void x1turbo_pal_w(uint8_t data);
+	void x1turbo_txpal_w(offs_t offset, uint8_t data);
+	void x1turbo_txdisp_w(uint8_t data);
+	void x1turbo_gfxpal_w(uint8_t data);
+	void x1turbo_blackclip_w(uint8_t data);
+	uint8_t x1turbo_mem_r(offs_t offset);
+	void x1turbo_mem_w(offs_t offset, uint8_t data);
+	void x1turboz_4096_palette_w(offs_t offset, uint8_t data);
+	uint8_t x1turboz_blackclip_r();
+	uint8_t x1turbo_bank_r();
+	void x1turbo_bank_w(uint8_t data);
+	uint8_t x1_porta_r();
+	uint8_t x1_portb_r();
+	uint8_t x1_portc_r();
+	void x1_porta_w(uint8_t data);
+	void x1_portb_w(uint8_t data);
+	void x1_portc_w(uint8_t data);
+	void init_x1_kanji();
+	virtual void machine_start() override;
 	DECLARE_MACHINE_RESET(x1);
-	DECLARE_VIDEO_START(x1);
-	DECLARE_PALETTE_INIT(x1);
+	virtual void video_start() override;
 	DECLARE_MACHINE_RESET(x1turbo);
 	uint32_t screen_update_x1(screen_device &screen, bitmap_rgb32 &bitmap, const rectangle &cliprect);
 	DECLARE_INPUT_CHANGED_MEMBER(ipl_reset);
@@ -146,35 +147,35 @@ public:
 	DECLARE_WRITE_LINE_MEMBER(fdc_drq_w);
 	DECLARE_WRITE_LINE_MEMBER(hdl_w);
 
-	DECLARE_READ8_MEMBER(memory_read_byte);
-	DECLARE_WRITE8_MEMBER(memory_write_byte);
-	DECLARE_READ8_MEMBER(io_read_byte);
-	DECLARE_WRITE8_MEMBER(io_write_byte);
+	uint8_t memory_read_byte(offs_t offset);
+	void memory_write_byte(offs_t offset, uint8_t data);
+	uint8_t io_read_byte(offs_t offset);
+	void io_write_byte(offs_t offset, uint8_t data);
 	required_device<gfxdecode_device> m_gfxdecode;
 	required_device<palette_device> m_palette;
 	optional_device<z80dma_device> m_dma;
 	void x1turbo(machine_config &config);
 	void x1(machine_config &config);
 
-	DECLARE_READ8_MEMBER(ym_r);
-	DECLARE_READ8_MEMBER(color_board_r);
-	DECLARE_WRITE8_MEMBER(color_board_w);
-	DECLARE_READ8_MEMBER(color_board_2_r);
-	DECLARE_WRITE8_MEMBER(color_board_2_w);
-	DECLARE_READ8_MEMBER(stereo_board_r);
-	DECLARE_WRITE8_MEMBER(stereo_board_w);
-	DECLARE_READ8_MEMBER(rs232_r);
-	DECLARE_WRITE8_MEMBER(rs232_w);
-	DECLARE_READ8_MEMBER(sasi_r);
-	DECLARE_WRITE8_MEMBER(sasi_w);
-	DECLARE_READ8_MEMBER(fdd8_r);
-	DECLARE_WRITE8_MEMBER(fdd8_w);
-	DECLARE_READ8_MEMBER(ext_sio_ctc_r);
-	DECLARE_WRITE8_MEMBER(ext_sio_ctc_w);
-	DECLARE_WRITE8_MEMBER(z_img_cap_w);
-	DECLARE_WRITE8_MEMBER(z_mosaic_w);
-	DECLARE_WRITE8_MEMBER(z_chroma_key_w);
-	DECLARE_WRITE8_MEMBER(z_extra_scroll_w);
+	uint8_t ym_r(offs_t offset);
+	uint8_t color_board_r(address_space &space);
+	void color_board_w(uint8_t data);
+	uint8_t color_board_2_r(address_space &space);
+	void color_board_2_w(uint8_t data);
+	uint8_t stereo_board_r(address_space &space, offs_t offset);
+	void stereo_board_w(offs_t offset, uint8_t data);
+	uint8_t rs232_r(offs_t offset);
+	void rs232_w(offs_t offset, uint8_t data);
+	uint8_t sasi_r(address_space &space, offs_t offset);
+	void sasi_w(offs_t offset, uint8_t data);
+	uint8_t fdd8_r(address_space &space, offs_t offset);
+	void fdd8_w(offs_t offset, uint8_t data);
+	uint8_t ext_sio_ctc_r(address_space &space, offs_t offset);
+	void ext_sio_ctc_w(offs_t offset, uint8_t data);
+	void z_img_cap_w(uint8_t data);
+	void z_mosaic_w(uint8_t data);
+	void z_chroma_key_w(uint8_t data);
+	void z_extra_scroll_w(uint8_t data);
 
 	uint8_t m_key_irq_flag;       /**< Keyboard IRQ pending. */
 	uint8_t m_key_irq_vector;     /**< Keyboard IRQ vector. */
@@ -221,6 +222,8 @@ protected:
 	uint16_t jis_convert(int kanji_addr);
 
 	required_device<address_map_bank_device> m_iobank;
+	optional_device<ym2151_device> m_ym; // turbo-only
+	optional_ioport m_sound_sw; // turbo-only
 	required_shared_ptr<uint8_t> m_tvram;   /**< Pointer for Text Video RAM */
 	required_shared_ptr<uint8_t> m_avram;   /**< Pointer for Attribute Video RAM */
 	optional_shared_ptr<uint8_t> m_kvram;   /**< Pointer for Extended Kanji Video RAM (X1 Turbo) */

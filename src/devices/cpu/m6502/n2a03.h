@@ -15,27 +15,22 @@
 #include "m6502.h"
 #include "sound/nes_apu.h"
 
-class n2a03_device : public m6502_device {
+class n2a03_device : public m6502_device, public device_mixer_interface {
 public:
 	n2a03_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
 
-	virtual util::disasm_interface *create_disassembler() override;
+	virtual std::unique_ptr<util::disasm_interface> create_disassembler() override;
 
 	virtual void do_exec_full() override;
 	virtual void do_exec_partial() override;
-	virtual void device_clock_changed() override;
 
-	READ8_MEMBER(psg1_4014_r);
-	READ8_MEMBER(psg1_4015_r);
-	WRITE8_MEMBER(psg1_4015_w);
-	WRITE8_MEMBER(psg1_4017_w);
-
-	required_device<nesapu_device> m_apu; // public for vgmplay
+	uint8_t psg1_4014_r();
+	uint8_t psg1_4015_r();
+	void psg1_4015_w(uint8_t data);
+	void psg1_4017_w(uint8_t data);
 
 	void n2a03_map(address_map &map);
 protected:
-	virtual void device_start() override;
-
 #define O(o) void o ## _full(); void o ## _partial()
 
 	// n2a03 opcodes - same as 6502 with D disabled
@@ -47,11 +42,13 @@ protected:
 
 #undef O
 
+	required_device<nesapu_device> m_apu;
+
 	virtual void device_add_mconfig(machine_config &config) override;
 
 private:
 	DECLARE_WRITE_LINE_MEMBER(apu_irq);
-	DECLARE_READ8_MEMBER(apu_read_mem);
+	uint8_t apu_read_mem(offs_t offset);
 
 };
 

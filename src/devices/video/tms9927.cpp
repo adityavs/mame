@@ -54,6 +54,7 @@ tms9927_device::tms9927_device(const machine_config &mconfig, device_type type, 
 	, m_selfload(*this, finder_base::DUMMY_TAG)
 	, m_reset(false)
 	, m_valid_config(false)
+	, m_custom_visarea(0, 0, 0, 0)
 {
 	std::fill(std::begin(m_reg), std::end(m_reg), 0x00);
 }
@@ -81,7 +82,7 @@ crt5057_device::crt5057_device(const machine_config &mconfig, const char *tag, d
 void tms9927_device::device_start()
 {
 	assert(clock() > 0);
-	if (!(m_hpixels_per_column > 0)) fatalerror("TMS9927: number of pixels per column must be explicitly set using MCFG_TMS9927_CHAR_WIDTH()!\n");
+	if (!(m_hpixels_per_column > 0)) fatalerror("TMS9927: number of pixels per column must be explicitly set using set_char_width()!\n");
 
 	// resolve callbacks
 	m_write_vsyn.resolve_safe();
@@ -91,9 +92,7 @@ void tms9927_device::device_start()
 	m_vsync_timer = timer_alloc(TIMER_VSYNC);
 	m_hsync_timer = timer_alloc(TIMER_HSYNC);
 
-	/* register for state saving */
-	machine().save().register_postload(save_prepost_delegate(FUNC(tms9927_device::state_postload), this));
-
+	// register for state saving
 	save_item(NAME(m_reg));
 	save_item(NAME(m_start_datarow));
 	save_item(NAME(m_reset));
@@ -181,13 +180,13 @@ void tms9927_device::device_timer(emu_timer &timer, device_timer_id id, int para
 	}
 }
 
-void tms9927_device::state_postload()
+void tms9927_device::device_post_load()
 {
 	recompute_parameters(true);
 }
 
 
-void tms9927_device::generic_access(address_space &space, offs_t offset)
+void tms9927_device::generic_access(offs_t offset)
 {
 	switch (offset)
 	{
@@ -196,9 +195,9 @@ void tms9927_device::generic_access(address_space &space, offs_t offset)
 			if (m_selfload.found())
 			{
 				for (int cur = 0; cur < 7; cur++)
-					write(space, cur, m_selfload[cur]);
+					write(cur, m_selfload[cur]);
 				for (int cur = 0; cur < 1; cur++)
-					write(space, cur + 0xc, m_selfload[cur + 7]);
+					write(cur + 0xc, m_selfload[cur + 7]);
 			}
 			else
 				popmessage("tms9927: self-load initiated with no PROM!");
@@ -232,7 +231,7 @@ void tms9927_device::generic_access(address_space &space, offs_t offset)
 	}
 }
 
-WRITE8_MEMBER( tms9927_device::write )
+void tms9927_device::write(offs_t offset, uint8_t data)
 {
 	switch (offset)
 	{
@@ -264,13 +263,13 @@ WRITE8_MEMBER( tms9927_device::write )
 			break;
 
 		default:
-			generic_access(space, offset);
+			generic_access(offset);
 			break;
 	}
 }
 
 
-READ8_MEMBER( tms9927_device::read )
+uint8_t tms9927_device::read(offs_t offset)
 {
 	switch (offset)
 	{
@@ -280,14 +279,14 @@ READ8_MEMBER( tms9927_device::read )
 
 		default:
 			if (!machine().side_effects_disabled())
-				generic_access(space, offset);
+				generic_access(offset);
 			break;
 	}
 	return 0xff;
 }
 
 
-READ_LINE_MEMBER(tms9927_device::bl_r)
+int tms9927_device::bl_r()
 {
 	return (m_reset || screen().vblank() || screen().hblank()) ? 1 : 0;
 }
@@ -351,11 +350,14 @@ void tms9927_device::recompute_parameters(bool postload)
 	rectangle visarea(0, m_overscan_left + m_visible_hpix + m_overscan_right - 1,
 				0, m_overscan_top + m_visible_vpix + m_overscan_bottom - 1);
 
-	attoseconds_t refresh = clocks_to_attotime(HCOUNT * m_total_vpix).as_attoseconds();
+	if (m_custom_visarea.width() > 1 && m_custom_visarea.height() > 1)
+		visarea = m_custom_visarea;
 
-	osd_printf_debug("TMS9927: Total = %dx%d, Visible = %dx%d, HSync = %d-%d, VSync = %d-%d, Skew=%d, Upscroll=%d, Period=%f Hz\n", m_total_hpix, m_total_vpix, m_visible_hpix, m_visible_vpix, m_hsyn_start, m_hsyn_end, m_vsyn_start, m_vsyn_end, SKEW_BITS, m_start_datarow, ATTOSECONDS_TO_HZ(refresh));
+	attotime refresh = clocks_to_attotime(HCOUNT * m_total_vpix);
 
-	screen().configure(m_total_hpix, m_total_vpix, visarea, refresh);
+	osd_printf_debug("TMS9927: Total = %dx%d, Visible = %dx%d, HSync = %d-%d, VSync = %d-%d, Skew=%d, Upscroll=%d, Period=%f Hz\n", m_total_hpix, m_total_vpix, m_visible_hpix, m_visible_vpix, m_hsyn_start, m_hsyn_end, m_vsyn_start, m_vsyn_end, SKEW_BITS, m_start_datarow, refresh.as_hz());
+
+	screen().configure(m_total_hpix, m_total_vpix, visarea, refresh.as_attoseconds());
 
 	m_hsyn = false;
 	if (!m_write_hsyn.isnull())

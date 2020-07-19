@@ -92,20 +92,20 @@ public:
 
 	void gts1(machine_config &config);
 
-protected:
-	DECLARE_READ8_MEMBER (gts1_solenoid_r);
-	DECLARE_WRITE8_MEMBER(gts1_solenoid_w);
-	DECLARE_READ8_MEMBER (gts1_switches_r);
-	DECLARE_WRITE8_MEMBER(gts1_switches_w);
-	DECLARE_WRITE8_MEMBER(gts1_display_w);
-	DECLARE_READ8_MEMBER (gts1_lamp_apm_r);
-	DECLARE_WRITE8_MEMBER(gts1_lamp_apm_w);
-	DECLARE_READ8_MEMBER (gts1_nvram_r);
-	DECLARE_WRITE8_MEMBER(gts1_nvram_w);
-	DECLARE_READ8_MEMBER (gts1_io_r);
-	DECLARE_WRITE8_MEMBER(gts1_io_w);
-	DECLARE_READ8_MEMBER (gts1_pa_r);
-	DECLARE_WRITE8_MEMBER(gts1_do_w);
+private:
+	uint8_t gts1_solenoid_r(offs_t offset);
+	void gts1_solenoid_w(offs_t offset, uint8_t data);
+	uint8_t gts1_switches_r(offs_t offset);
+	void gts1_switches_w(offs_t offset, uint8_t data);
+	void gts1_display_w(offs_t offset, uint8_t data);
+	uint8_t gts1_lamp_apm_r(offs_t offset);
+	void gts1_lamp_apm_w(offs_t offset, uint8_t data);
+	uint8_t gts1_nvram_r(offs_t offset);
+	void gts1_nvram_w(offs_t offset, uint8_t data);
+	uint8_t gts1_io_r(offs_t offset);
+	void gts1_io_w(offs_t offset, uint8_t data);
+	uint8_t gts1_pa_r();
+	void gts1_do_w(uint8_t data);
 
 	virtual void machine_start() override;
 	virtual void machine_reset() override;
@@ -114,7 +114,6 @@ protected:
 	void gts1_data(address_map &map);
 	void gts1_io(address_map &map);
 
-private:
 	required_device<cpu_device> m_maincpu;
 	required_ioport_array<3> m_dips;
 	required_ioport_array<5> m_switches;
@@ -129,24 +128,27 @@ private:
 	uint16_t m_z30_out;           //!< 4-to-16 decoder outputs
 };
 
-ADDRESS_MAP_START(gts1_state::gts1_map)
-	AM_RANGE(0x0000, 0x0fff) AM_ROM
-ADDRESS_MAP_END
+void gts1_state::gts1_map(address_map &map)
+{
+	map(0x0000, 0x0fff).rom();
+}
 
-ADDRESS_MAP_START(gts1_state::gts1_data)
-	AM_RANGE(0x0000, 0x00ff) AM_RAM
-	AM_RANGE(0x0100, 0x01ff) AM_RAM AM_SHARE("nvram")
-ADDRESS_MAP_END
+void gts1_state::gts1_data(address_map &map)
+{
+	map(0x0000, 0x00ff).ram();
+	map(0x0100, 0x01ff).ram().share("nvram");
+}
 
-ADDRESS_MAP_START(gts1_state::gts1_io)
-	AM_RANGE(0x0000, 0x00ff) AM_READ ( gts1_io_r ) AM_WRITE( gts1_io_w )         // catch undecoded I/O accesss
+void gts1_state::gts1_io(address_map &map)
+{
+	map(0x0000, 0x00ff).r(FUNC(gts1_state::gts1_io_r)).w(FUNC(gts1_state::gts1_io_w));         // catch undecoded I/O accesss
 
-	AM_RANGE(0x0020, 0x002f) AM_DEVREADWRITE ( "u4", ra17xx_device, io_r, io_w ) // (U4) solenoid
-	AM_RANGE(0x0030, 0x003f) AM_DEVREADWRITE ( "u3", r10696_device, io_r, io_w ) // (U3) solenoid + dips
-	AM_RANGE(0x0040, 0x004f) AM_DEVREADWRITE ( "u5", ra17xx_device, io_r, io_w ) // (U5) switch matrix
-	AM_RANGE(0x0060, 0x006f) AM_DEVREADWRITE ( "u2", r10696_device, io_r, io_w ) // (U2) NVRAM io chip
-	AM_RANGE(0x00d0, 0x00df) AM_DEVREADWRITE ( "u6", r10788_device, io_r, io_w ) // (U6) display chip
-ADDRESS_MAP_END
+	map(0x0020, 0x002f).rw("u4", FUNC(ra17xx_device::io_r), FUNC(ra17xx_device::io_w)); // (U4) solenoid
+	map(0x0030, 0x003f).rw("u3", FUNC(r10696_device::io_r), FUNC(r10696_device::io_w)); // (U3) solenoid + dips
+	map(0x0040, 0x004f).rw("u5", FUNC(ra17xx_device::io_r), FUNC(ra17xx_device::io_w)); // (U5) switch matrix
+	map(0x0060, 0x006f).rw("u2", FUNC(r10696_device::io_r), FUNC(r10696_device::io_w)); // (U2) NVRAM io chip
+	map(0x00d0, 0x00df).rw("u6", FUNC(r10788_device::io_r), FUNC(r10788_device::io_w)); // (U6) display chip
+}
 
 static INPUT_PORTS_START( gts1_dips )
 	PORT_START("DSW0")
@@ -363,14 +365,14 @@ void gts1_state::machine_reset()
 	m_z30_out = 0;
 }
 
-READ8_MEMBER (gts1_state::gts1_solenoid_r)
+uint8_t gts1_state::gts1_solenoid_r(offs_t offset)
 {
 	uint8_t data = 0;
 	LOG("%s: solenoid[%02x] -> %x\n", __FUNCTION__, offset, data);
 	return data;
 }
 
-WRITE8_MEMBER(gts1_state::gts1_solenoid_w)
+void gts1_state::gts1_solenoid_w(offs_t offset, uint8_t data)
 {
 	switch (offset)
 	{
@@ -418,7 +420,7 @@ WRITE8_MEMBER(gts1_state::gts1_solenoid_w)
 	}
 }
 
-READ8_MEMBER (gts1_state::gts1_switches_r)
+uint8_t gts1_state::gts1_switches_r(offs_t offset)
 {
 	uint8_t data = 1;
 	if (offset >= 8 && offset < 16) {
@@ -433,7 +435,7 @@ READ8_MEMBER (gts1_state::gts1_switches_r)
 	return data;
 }
 
-WRITE8_MEMBER(gts1_state::gts1_switches_w)
+void gts1_state::gts1_switches_w(offs_t offset, uint8_t data)
 {
 	LOG("%s: switches[%x] <- %x\n", __FUNCTION__, offset, data);
 	if (offset < 5) {
@@ -447,7 +449,7 @@ WRITE8_MEMBER(gts1_state::gts1_switches_w)
  * @param offset digit number 0 .. 19
  * @param data 4-bit value to display
  */
-WRITE8_MEMBER(gts1_state::gts1_display_w)
+void gts1_state::gts1_display_w(offs_t offset, uint8_t data)
 {
 	/*
 	 * The 7448 is modified to be disabled through RI/RBO
@@ -509,7 +511,7 @@ WRITE8_MEMBER(gts1_state::gts1_display_w)
  * @param offset 0 ... 2 = group
  * @return 4-bit value read from the group
  */
-READ8_MEMBER (gts1_state::gts1_nvram_r)
+uint8_t gts1_state::gts1_nvram_r(offs_t offset)
 {
 	uint8_t data = 0x0f;
 	switch (offset)
@@ -536,7 +538,7 @@ READ8_MEMBER (gts1_state::gts1_nvram_r)
  * @param offset 0 ... 2 = group
  * @param data 4 bit value to write
  */
-WRITE8_MEMBER(gts1_state::gts1_nvram_w)
+void gts1_state::gts1_nvram_w(offs_t offset, uint8_t data)
 {
 	switch (offset)
 	{
@@ -562,7 +564,7 @@ WRITE8_MEMBER(gts1_state::gts1_nvram_w)
  * @param offset 0 ... 2 = group
  * @return 4-bit value read from the group
  */
-READ8_MEMBER (gts1_state::gts1_lamp_apm_r)
+uint8_t gts1_state::gts1_lamp_apm_r(offs_t offset)
 {
 	uint8_t data = 0x0f;
 	switch (offset) {
@@ -651,7 +653,7 @@ READ8_MEMBER (gts1_state::gts1_lamp_apm_r)
  * @param offset 0 ... 2 = group
  * @param data 4 bit value to write
  */
-WRITE8_MEMBER(gts1_state::gts1_lamp_apm_w)
+void gts1_state::gts1_lamp_apm_w(offs_t offset, uint8_t data)
 {
 	switch (offset) {
 		case 0: // LD1-LD4 on jumper J5
@@ -666,19 +668,19 @@ WRITE8_MEMBER(gts1_state::gts1_lamp_apm_w)
 	}
 }
 
-READ8_MEMBER (gts1_state::gts1_io_r)
+uint8_t gts1_state::gts1_io_r(offs_t offset)
 {
 	const uint8_t data = 0x0f;
 	LOG("%s: unmapped io[%02x] -> %x\n", __FUNCTION__, offset, data);
 	return data;
 }
 
-WRITE8_MEMBER(gts1_state::gts1_io_w)
+void gts1_state::gts1_io_w(offs_t offset, uint8_t data)
 {
 	LOG("%s: unmapped io[%02x] <- %x\n", __FUNCTION__, offset, data);
 }
 
-READ8_MEMBER (gts1_state::gts1_pa_r)
+uint8_t gts1_state::gts1_pa_r()
 {
 	// return ROM nibble
 	uint8_t *ROM = memregion("maincpu")->base();
@@ -687,7 +689,7 @@ READ8_MEMBER (gts1_state::gts1_pa_r)
 	return data;
 }
 
-WRITE8_MEMBER(gts1_state::gts1_do_w)
+void gts1_state::gts1_do_w(uint8_t data)
 {
 	// write address lines (DO1-4 to A0-3, DIO1-4 to A4-7)
 	m_6351_addr = (m_6351_addr & 0x300) | data;
@@ -695,49 +697,50 @@ WRITE8_MEMBER(gts1_state::gts1_do_w)
 }
 
 
-MACHINE_CONFIG_START(gts1_state::gts1)
+void gts1_state::gts1(machine_config & config)
+{
 	/* basic machine hardware */
-	MCFG_CPU_ADD("maincpu", PPS4_2, XTAL(3'579'545))  // divided by 18 in the CPU
-	MCFG_CPU_PROGRAM_MAP(gts1_map)
-	MCFG_CPU_DATA_MAP(gts1_data)
-	MCFG_CPU_IO_MAP(gts1_io)
-	MCFG_PPS4_DISCRETE_INPUT_A_CB(READ8(gts1_state, gts1_pa_r))
-	MCFG_PPS4_DISCRETE_OUTPUT_CB(WRITE8(gts1_state, gts1_do_w))
+	pps4_2_device &maincpu(PPS4_2(config, m_maincpu, XTAL(3'579'545)));  // divided by 18 in the CPU
+	maincpu.set_addrmap(AS_PROGRAM, &gts1_state::gts1_map);
+	maincpu.set_addrmap(AS_DATA, &gts1_state::gts1_data);
+	maincpu.set_addrmap(AS_IO, &gts1_state::gts1_io);
+	maincpu.dia_cb().set(FUNC(gts1_state::gts1_pa_r));
+	maincpu.do_cb().set(FUNC(gts1_state::gts1_do_w));
 
-	MCFG_NVRAM_ADD_0FILL("nvram")
+	NVRAM(config, "nvram", nvram_device::DEFAULT_ALL_0);
 
 	/* A1753CE 2048 x 8 ROM (000-7ff), 128 x 4 RAM (00-7f) and 16 I/O lines (20 ... 2f) */
-	MCFG_DEVICE_ADD( "u5", RA17XX, 0 )
-	MCFG_RA17XX_READ ( READ8 (gts1_state,gts1_switches_r) )
-	MCFG_RA17XX_WRITE( WRITE8(gts1_state,gts1_switches_w) )
-	MCFG_RA17XX_CPU("maincpu")
+	ra17xx_device &u5(RA17XX(config, "u5", 0));
+	u5.iord_cb().set(FUNC(gts1_state::gts1_switches_r));
+	u5.iowr_cb().set(FUNC(gts1_state::gts1_switches_w));
+	u5.set_cpu_tag(m_maincpu);
 
 	/* A1752CF 2048 x 8 ROM (800-fff), 128 x 4 RAM (80-ff) and 16 I/O lines (40 ... 4f) */
-	MCFG_DEVICE_ADD( "u4", RA17XX, 0 )
-	MCFG_RA17XX_READ ( READ8 (gts1_state,gts1_solenoid_r) )
-	MCFG_RA17XX_WRITE( WRITE8(gts1_state,gts1_solenoid_w) )
-	MCFG_RA17XX_CPU("maincpu")
+	ra17xx_device &u4(RA17XX(config, "u4", 0));
+	u4.iord_cb().set(FUNC(gts1_state::gts1_solenoid_r));
+	u4.iowr_cb().set(FUNC(gts1_state::gts1_solenoid_w));
+	u4.set_cpu_tag(m_maincpu);
 
 	/* 10696 General Purpose Input/Output */
-	MCFG_DEVICE_ADD( "u2", R10696, 0 )
-	MCFG_R10696_IO( READ8 (gts1_state,gts1_nvram_r),
-					WRITE8(gts1_state,gts1_nvram_w) )
+	r10696_device &u2(R10696(config, "u2", 0));
+	u2.iord_cb().set(FUNC(gts1_state::gts1_nvram_r));
+	u2.iowr_cb().set(FUNC(gts1_state::gts1_nvram_w));
 
 	/* 10696 General Purpose Input/Output */
-	MCFG_DEVICE_ADD( "u3", R10696, 0 )
-	MCFG_R10696_IO( READ8 (gts1_state,gts1_lamp_apm_r),
-					WRITE8(gts1_state,gts1_lamp_apm_w) )
+	r10696_device &u3(R10696(config, "u3", 0));
+	u3.iord_cb().set(FUNC(gts1_state::gts1_lamp_apm_r));
+	u3.iowr_cb().set(FUNC(gts1_state::gts1_lamp_apm_w));
 
 	/* 10788 General Purpose Display and Keyboard */
-	MCFG_DEVICE_ADD( "u6", R10788, XTAL(3'579'545) / 18 )  // divided in the circuit
-	MCFG_R10788_UPDATE( WRITE8(gts1_state,gts1_display_w) )
+	r10788_device &u6(R10788(config, "u6", XTAL(3'579'545) / 18 ));  // divided in the circuit
+	u6.update_cb().set(FUNC(gts1_state::gts1_display_w));
 
 	/* Video */
-	MCFG_DEFAULT_LAYOUT( layout_gts1 )
+	config.set_default_layout(layout_gts1);
 
 	/* Sound */
 	genpin_audio(config);
-MACHINE_CONFIG_END
+}
 
 
 ROM_START( gts1 )
@@ -990,34 +993,34 @@ ROM_START(sys1test)
 ROM_END
 
 
-GAME(1977,  gts1,       0,          gts1,   gts1,     gts1_state,   0,   ROT0,   "Gottlieb",     "System 1", MACHINE_IS_BIOS_ROOT | MACHINE_NOT_WORKING)
+GAME(1977,  gts1,     0,      gts1, gts1,     gts1_state, empty_init, ROT0, "Gottlieb",         "System 1",                  MACHINE_IS_BIOS_ROOT | MACHINE_NOT_WORKING)
 
 //Exact same roms as gts1 with added hardware we'll likely need roms for to emulate properly
-GAME(1979,  gts1s,      gts1,       gts1,   gts1,     gts1_state,   0,   ROT0,   "Gottlieb",     "System 1 with sound board", MACHINE_IS_BIOS_ROOT | MACHINE_NOT_WORKING )
-GAME(19??,  sys1test,   gts1,       gts1,   gts1,     gts1_state,   0,   ROT0,   "Gottlieb",     "System 1 Test prom",                   MACHINE_IS_SKELETON_MECHANICAL)
+GAME(1979,  gts1s,    gts1,   gts1, gts1,     gts1_state, empty_init, ROT0, "Gottlieb",         "System 1 with sound board", MACHINE_IS_BIOS_ROOT | MACHINE_NOT_WORKING)
+GAME(19??,  sys1test, gts1,   gts1, gts1,     gts1_state, empty_init, ROT0, "Gottlieb",         "System 1 Test prom",                   MACHINE_IS_SKELETON_MECHANICAL)
 
 // chimes
-GAME(1977,  cleoptra,   gts1,       gts1,   gts1,     gts1_state,   0,   ROT0,   "Gottlieb",     "Cleopatra",                            MACHINE_IS_SKELETON_MECHANICAL)
-GAME(1978,  sinbad,     gts1,       gts1,   gts1,     gts1_state,   0,   ROT0,   "Gottlieb",     "Sinbad",                               MACHINE_IS_SKELETON_MECHANICAL)
-GAME(1978,  sinbadn,    sinbad,     gts1,   gts1,     gts1_state,   0,   ROT0,   "Gottlieb",     "Sinbad (Norway)",                      MACHINE_IS_SKELETON_MECHANICAL)
-GAME(1978,  jokrpokr,   gts1,       gts1,   jokrpokr, gts1_state,   0,   ROT0,   "Gottlieb",     "Joker Poker",                          MACHINE_IS_SKELETON_MECHANICAL)
-GAME(1978,  dragon,     gts1,       gts1,   gts1,     gts1_state,   0,   ROT0,   "Gottlieb",     "Dragon",                               MACHINE_IS_SKELETON_MECHANICAL)
-GAME(1979,  solaride,   gts1,       gts1,   gts1,     gts1_state,   0,   ROT0,   "Gottlieb",     "Solar Ride",                           MACHINE_IS_SKELETON_MECHANICAL)
-GAME(1979,  countdwn,   gts1,       gts1,   gts1,     gts1_state,   0,   ROT0,   "Gottlieb",     "Count-Down",                           MACHINE_IS_SKELETON_MECHANICAL)
+GAME(1977,  cleoptra, gts1,   gts1, gts1,     gts1_state, empty_init, ROT0, "Gottlieb",         "Cleopatra",                            MACHINE_IS_SKELETON_MECHANICAL)
+GAME(1978,  sinbad,   gts1,   gts1, gts1,     gts1_state, empty_init, ROT0, "Gottlieb",         "Sinbad",                               MACHINE_IS_SKELETON_MECHANICAL)
+GAME(1978,  sinbadn,  sinbad, gts1, gts1,     gts1_state, empty_init, ROT0, "Gottlieb",         "Sinbad (Norway)",                      MACHINE_IS_SKELETON_MECHANICAL)
+GAME(1978,  jokrpokr, gts1,   gts1, jokrpokr, gts1_state, empty_init, ROT0, "Gottlieb",         "Joker Poker",                          MACHINE_IS_SKELETON_MECHANICAL)
+GAME(1978,  dragon,   gts1,   gts1, gts1,     gts1_state, empty_init, ROT0, "Gottlieb",         "Dragon",                               MACHINE_IS_SKELETON_MECHANICAL)
+GAME(1979,  solaride, gts1,   gts1, gts1,     gts1_state, empty_init, ROT0, "Gottlieb",         "Solar Ride",                           MACHINE_IS_SKELETON_MECHANICAL)
+GAME(1979,  countdwn, gts1,   gts1, gts1,     gts1_state, empty_init, ROT0, "Gottlieb",         "Count-Down",                           MACHINE_IS_SKELETON_MECHANICAL)
 
 // NE555 beeper
-GAME(1978,  closeenc,   gts1,       gts1,   gts1,     gts1_state,   0,   ROT0,   "Gottlieb",     "Close Encounters of the Third Kind",   MACHINE_IS_SKELETON_MECHANICAL)
-GAME(1978,  charlies,   gts1,       gts1,   gts1,     gts1_state,   0,   ROT0,   "Gottlieb",     "Charlie's Angels",                     MACHINE_IS_SKELETON_MECHANICAL)
-GAME(1979,  pinpool,    gts1,       gts1,   gts1,     gts1_state,   0,   ROT0,   "Gottlieb",     "Pinball Pool",                         MACHINE_IS_SKELETON_MECHANICAL)
+GAME(1978,  closeenc, gts1,   gts1, gts1,     gts1_state, empty_init, ROT0, "Gottlieb",         "Close Encounters of the Third Kind",   MACHINE_IS_SKELETON_MECHANICAL)
+GAME(1978,  charlies, gts1,   gts1, gts1,     gts1_state, empty_init, ROT0, "Gottlieb",         "Charlie's Angels",                     MACHINE_IS_SKELETON_MECHANICAL)
+GAME(1979,  pinpool,  gts1,   gts1, gts1,     gts1_state, empty_init, ROT0, "Gottlieb",         "Pinball Pool",                         MACHINE_IS_SKELETON_MECHANICAL)
 
 // sound card
-GAME(1979,  totem,      gts1s,      gts1,   gts1,     gts1_state,   0,   ROT0,   "Gottlieb",     "Totem",                                MACHINE_IS_SKELETON_MECHANICAL)
-GAME(1979,  hulk,       gts1s,      gts1,   gts1,     gts1_state,   0,   ROT0,   "Gottlieb",     "The Incredible Hulk",                  MACHINE_IS_SKELETON_MECHANICAL)
-GAME(1979,  geniep,     gts1s,      gts1,   gts1,     gts1_state,   0,   ROT0,   "Gottlieb",     "Genie (Pinball)",                      MACHINE_IS_SKELETON_MECHANICAL)
-GAME(1980,  buckrgrs,   gts1s,      gts1,   gts1,     gts1_state,   0,   ROT0,   "Gottlieb",     "Buck Rogers",                          MACHINE_IS_SKELETON_MECHANICAL)
-GAME(1980,  torch,      gts1s,      gts1,   gts1,     gts1_state,   0,   ROT0,   "Gottlieb",     "Torch",                                MACHINE_IS_SKELETON_MECHANICAL)
-GAME(1980,  roldisco,   gts1s,      gts1,   gts1,     gts1_state,   0,   ROT0,   "Gottlieb",     "Roller Disco",                         MACHINE_IS_SKELETON_MECHANICAL)
-GAME(1980,  astannie,   gts1s,      gts1,   gts1,     gts1_state,   0,   ROT0,   "Gottlieb",     "Asteroid Annie and the Aliens",        MACHINE_IS_SKELETON_MECHANICAL)
+GAME(1979,  totem,    gts1s,  gts1, gts1,     gts1_state, empty_init, ROT0, "Gottlieb",         "Totem",                                MACHINE_IS_SKELETON_MECHANICAL)
+GAME(1979,  hulk,     gts1s,  gts1, gts1,     gts1_state, empty_init, ROT0, "Gottlieb",         "The Incredible Hulk",                  MACHINE_IS_SKELETON_MECHANICAL)
+GAME(1979,  geniep,   gts1s,  gts1, gts1,     gts1_state, empty_init, ROT0, "Gottlieb",         "Genie (Pinball)",                      MACHINE_IS_SKELETON_MECHANICAL)
+GAME(1980,  buckrgrs, gts1s,  gts1, gts1,     gts1_state, empty_init, ROT0, "Gottlieb",         "Buck Rogers",                          MACHINE_IS_SKELETON_MECHANICAL)
+GAME(1980,  torch,    gts1s,  gts1, gts1,     gts1_state, empty_init, ROT0, "Gottlieb",         "Torch",                                MACHINE_IS_SKELETON_MECHANICAL)
+GAME(1980,  roldisco, gts1s,  gts1, gts1,     gts1_state, empty_init, ROT0, "Gottlieb",         "Roller Disco",                         MACHINE_IS_SKELETON_MECHANICAL)
+GAME(1980,  astannie, gts1s,  gts1, gts1,     gts1_state, empty_init, ROT0, "Gottlieb",         "Asteroid Annie and the Aliens",        MACHINE_IS_SKELETON_MECHANICAL)
 
 // homebrew
-GAME(1986,  hexagone,   gts1s,      gts1,   gts1,     gts1_state,   0,   ROT0,   "Christian Tabart",        "L'Hexagone (France)",       MACHINE_IS_SKELETON_MECHANICAL)
+GAME(1986,  hexagone, gts1s,  gts1, gts1,     gts1_state, empty_init, ROT0, "Christian Tabart", "L'Hexagone (France)",                  MACHINE_IS_SKELETON_MECHANICAL)

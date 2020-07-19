@@ -2,7 +2,7 @@
 // copyright-holders:Tim Schuerewegen
 /**************************************************************************
  *
- * gp32.c - Game Park GP32
+ * gp32.cpp - Game Park GP32
  * Driver by Tim Schuerewegen
  *
  * CPU: Samsung S3C2400X01 SoC
@@ -14,6 +14,21 @@
  *    USB controller
  *    and more.
  *
+ * TODO:
+ * - device-ify s3c240x;
+ * - console screen is horizontal, but here screen is setted up with
+ *   Height < Width and ROT270, in a double negation fashion. Simplify and
+ *   eventually update video fns;
+ * - Normalize palette to actual TFT color space;
+ * - Several games have dubious sound clipping and mixing;
+ * - RF and internet comms & netplay (rallypop has both);
+ * - Games from SW list doesn't reload after save, is it even supported?
+ * - Add slot for USB PC-Link application, add a host machine connection
+ *   somehow;
+ * - Verify MP3 support, which in turn needs checking out how the filesystem
+ *   works here (and eventually a tool for direct injecting);
+ * - Verify gp32linux distro;
+ *
  **************************************************************************/
 
 #include "emu.h"
@@ -23,7 +38,6 @@
 #include "cpu/arm7/arm7core.h"
 #include "sound/volt_reg.h"
 
-#include "rendlay.h"
 #include "softlist.h"
 #include "speaker.h"
 
@@ -280,7 +294,7 @@ uint32_t gp32_state::screen_update_gp32(screen_device &screen, bitmap_rgb32 &bit
 	return 0;
 }
 
-READ32_MEMBER(gp32_state::s3c240x_lcd_r)
+uint32_t gp32_state::s3c240x_lcd_r(offs_t offset)
 {
 	uint32_t data = m_s3c240x_lcd_regs[offset];
 	switch (offset)
@@ -349,7 +363,7 @@ void gp32_state::s3c240x_lcd_recalc()
 	}
 }
 
-WRITE32_MEMBER(gp32_state::s3c240x_lcd_w)
+void gp32_state::s3c240x_lcd_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	uint32_t old_value = m_s3c240x_lcd_regs[offset];
 	LOGMASKED(LOG_TRACE, "(LCD) %08X <- %08X %s\n", 0x14A00000 + (offset << 2), data, machine().describe_context());
@@ -371,14 +385,14 @@ WRITE32_MEMBER(gp32_state::s3c240x_lcd_w)
 // LCD PALETTE
 
 
-READ32_MEMBER(gp32_state::s3c240x_lcd_palette_r)
+uint32_t gp32_state::s3c240x_lcd_palette_r(offs_t offset)
 {
 	uint32_t data = m_s3c240x_lcd_palette[offset];
 	LOGMASKED(LOG_TRACE, "(LCD) %08X -> %08X %s\n", 0x14A00400 + (offset << 2), data, machine().describe_context());
 	return data;
 }
 
-WRITE32_MEMBER(gp32_state::s3c240x_lcd_palette_w)
+void gp32_state::s3c240x_lcd_palette_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	LOGMASKED(LOG_TRACE, "(LCD) %08X <- %08X %s\n", 0x14A00400 + (offset << 2), data, machine().describe_context());
 	COMBINE_DATA(&m_s3c240x_lcd_palette[offset]);
@@ -426,14 +440,14 @@ uint32_t gp32_state::s3c240x_get_pclk(int reg)
 	return 0;
 }
 
-READ32_MEMBER(gp32_state::s3c240x_clkpow_r)
+uint32_t gp32_state::s3c240x_clkpow_r(offs_t offset)
 {
 	uint32_t data = m_s3c240x_clkpow_regs[offset];
 	LOGMASKED(LOG_TRACE, "(CLKPOW) %08X -> %08X %s\n", 0x14800000 + (offset << 2), data, machine().describe_context());
 	return data;
 }
 
-WRITE32_MEMBER(gp32_state::s3c240x_clkpow_w)
+void gp32_state::s3c240x_clkpow_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	LOGMASKED(LOG_TRACE, "(CLKPOW) %08X <- %08X %s\n", 0x14800000 + (offset << 2), data, machine().describe_context());
 	COMBINE_DATA(&m_s3c240x_clkpow_regs[offset]);
@@ -490,14 +504,14 @@ void gp32_state::s3c240x_request_irq(uint32_t int_type)
 }
 
 
-READ32_MEMBER(gp32_state::s3c240x_irq_r)
+uint32_t gp32_state::s3c240x_irq_r(offs_t offset)
 {
 	uint32_t data = m_s3c240x_irq_regs[offset];
 	LOGMASKED(LOG_TRACE, "(IRQ) %08X -> %08X %s\n", 0x14400000 + (offset << 2), data, machine().describe_context());
 	return data;
 }
 
-WRITE32_MEMBER(gp32_state::s3c240x_irq_w)
+void gp32_state::s3c240x_irq_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	uint32_t old_value = m_s3c240x_irq_regs[offset];
 	LOGMASKED(LOG_TRACE, "(IRQ) %08X <- %08X %s\n", 0x14400000 + (offset << 2), data, machine().describe_context());
@@ -547,7 +561,7 @@ static const char *const timer_reg_names[] =
 #endif
 
 
-READ32_MEMBER(gp32_state::s3c240x_pwm_r)
+uint32_t gp32_state::s3c240x_pwm_r(offs_t offset)
 {
 	uint32_t data = m_s3c240x_pwm_regs[offset];
 	LOGMASKED(LOG_TRACE, "(PWM) %08X -> %08X %s\n", 0x15100000 + (offset << 2), data, machine().describe_context());
@@ -609,7 +623,7 @@ void gp32_state::s3c240x_pwm_recalc(int timer)
 	}
 }
 
-WRITE32_MEMBER(gp32_state::s3c240x_pwm_w)
+void gp32_state::s3c240x_pwm_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	uint32_t old_value = m_s3c240x_pwm_regs[offset];
 	LOGMASKED(LOG_TRACE, "(PWM) %08X <- %08X %s\n", 0x15100000 + (offset << 2), data, machine().describe_context());
@@ -797,14 +811,14 @@ void gp32_state::s3c240x_dma_recalc(int dma)
 	}
 }
 
-READ32_MEMBER(gp32_state::s3c240x_dma_r)
+uint32_t gp32_state::s3c240x_dma_r(offs_t offset)
 {
 	uint32_t data = m_s3c240x_dma_regs[offset];
 	LOGMASKED(LOG_TRACE, "(DMA) %08X -> %08X %s\n", 0x14600000 + (offset << 2), data, machine().describe_context());
 	return data;
 }
 
-WRITE32_MEMBER(gp32_state::s3c240x_dma_w)
+void gp32_state::s3c240x_dma_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	uint32_t old_value = m_s3c240x_dma_regs[offset];
 	LOGMASKED(LOG_TRACE, "(DMA) %08X <- %08X %s\n", 0x14600000 + (offset << 2), data, machine().describe_context());
@@ -1008,7 +1022,7 @@ void gp32_state::i2s_write(int line, int data)
 // I/O PORT
 
 
-READ32_MEMBER(gp32_state::s3c240x_gpio_r)
+uint32_t gp32_state::s3c240x_gpio_r(offs_t offset)
 {
 	uint32_t data = m_s3c240x_gpio[offset];
 	switch (offset)
@@ -1059,7 +1073,7 @@ READ32_MEMBER(gp32_state::s3c240x_gpio_r)
 	return data;
 }
 
-WRITE32_MEMBER(gp32_state::s3c240x_gpio_w)
+void gp32_state::s3c240x_gpio_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	COMBINE_DATA(&m_s3c240x_gpio[offset]);
 	LOGMASKED(LOG_TRACE, "(GPIO) %08X <- %08X %s\n", 0x15600000 + (offset << 2), data, machine().describe_context());
@@ -1119,14 +1133,14 @@ WRITE32_MEMBER(gp32_state::s3c240x_gpio_w)
 // MEMORY CONTROLLER
 
 
-READ32_MEMBER(gp32_state::s3c240x_memcon_r)
+uint32_t gp32_state::s3c240x_memcon_r(offs_t offset)
 {
 	uint32_t data = m_s3c240x_memcon_regs[offset];
 	LOGMASKED(LOG_TRACE, "(MEMCON) %08X -> %08X %s\n", 0x14000000 + (offset << 2), data, machine().describe_context());
 	return data;
 }
 
-WRITE32_MEMBER(gp32_state::s3c240x_memcon_w)
+void gp32_state::s3c240x_memcon_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	LOGMASKED(LOG_TRACE, "(MEMCON) %08X <- %08X %s\n", 0x14000000 + (offset << 2), data, machine().describe_context());
 	COMBINE_DATA(&m_s3c240x_memcon_regs[offset]);
@@ -1135,14 +1149,14 @@ WRITE32_MEMBER(gp32_state::s3c240x_memcon_w)
 // USB HOST CONTROLLER
 
 
-READ32_MEMBER(gp32_state::s3c240x_usb_host_r)
+uint32_t gp32_state::s3c240x_usb_host_r(offs_t offset)
 {
 	uint32_t data = m_s3c240x_usb_host_regs[offset];
 	LOGMASKED(LOG_TRACE, "(USB H) %08X -> %08X %s\n", 0x14200000 + (offset << 2), data, machine().describe_context());
 	return data;
 }
 
-WRITE32_MEMBER(gp32_state::s3c240x_usb_host_w)
+void gp32_state::s3c240x_usb_host_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	LOGMASKED(LOG_TRACE, "(USB H) %08X <- %08X %s\n", 0x14200000 + (offset << 2), data, machine().describe_context());
 	COMBINE_DATA(&m_s3c240x_usb_host_regs[offset]);
@@ -1151,7 +1165,7 @@ WRITE32_MEMBER(gp32_state::s3c240x_usb_host_w)
 // UART 0
 
 
-READ32_MEMBER(gp32_state::s3c240x_uart_0_r)
+uint32_t gp32_state::s3c240x_uart_0_r(offs_t offset)
 {
 	uint32_t data = m_s3c240x_uart_0_regs[offset];
 	switch (offset)
@@ -1167,7 +1181,7 @@ READ32_MEMBER(gp32_state::s3c240x_uart_0_r)
 	return data;
 }
 
-WRITE32_MEMBER(gp32_state::s3c240x_uart_0_w)
+void gp32_state::s3c240x_uart_0_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	LOGMASKED(LOG_TRACE, "(UART 0) %08X <- %08X %s\n", 0x15000000 + (offset << 2), data, machine().describe_context());
 	COMBINE_DATA(&m_s3c240x_uart_0_regs[offset]);
@@ -1176,7 +1190,7 @@ WRITE32_MEMBER(gp32_state::s3c240x_uart_0_w)
 // UART 1
 
 
-READ32_MEMBER(gp32_state::s3c240x_uart_1_r)
+uint32_t gp32_state::s3c240x_uart_1_r(offs_t offset)
 {
 	uint32_t data = m_s3c240x_uart_1_regs[offset];
 	switch (offset)
@@ -1192,7 +1206,7 @@ READ32_MEMBER(gp32_state::s3c240x_uart_1_r)
 	return data;
 }
 
-WRITE32_MEMBER(gp32_state::s3c240x_uart_1_w)
+void gp32_state::s3c240x_uart_1_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	LOGMASKED(LOG_TRACE, "(UART 1) %08X <- %08X %s\n", 0x15004000 + (offset << 2), data, machine().describe_context());
 	COMBINE_DATA(&m_s3c240x_uart_1_regs[offset]);
@@ -1201,14 +1215,14 @@ WRITE32_MEMBER(gp32_state::s3c240x_uart_1_w)
 // USB DEVICE
 
 
-READ32_MEMBER(gp32_state::s3c240x_usb_device_r)
+uint32_t gp32_state::s3c240x_usb_device_r(offs_t offset)
 {
 	uint32_t data = m_s3c240x_usb_device_regs[offset];
 	LOGMASKED(LOG_TRACE, "(USB D) %08X -> %08X %s\n", 0x15200140 + (offset << 2), data, machine().describe_context());
 	return data;
 }
 
-WRITE32_MEMBER(gp32_state::s3c240x_usb_device_w)
+void gp32_state::s3c240x_usb_device_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	LOGMASKED(LOG_TRACE, "(USB D) %08X <- %08X %s\n", 0x15200140 + (offset << 2), data, machine().describe_context());
 	COMBINE_DATA(&m_s3c240x_usb_device_regs[offset]);
@@ -1217,14 +1231,14 @@ WRITE32_MEMBER(gp32_state::s3c240x_usb_device_w)
 // WATCHDOG TIMER
 
 
-READ32_MEMBER(gp32_state::s3c240x_watchdog_r)
+uint32_t gp32_state::s3c240x_watchdog_r(offs_t offset)
 {
 	uint32_t data = m_s3c240x_watchdog_regs[offset];
 	LOGMASKED(LOG_TRACE, "(WDOG) %08X -> %08X %s\n", 0x15300000 + (offset << 2), data, machine().describe_context());
 	return data;
 }
 
-WRITE32_MEMBER(gp32_state::s3c240x_watchdog_w)
+void gp32_state::s3c240x_watchdog_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	LOGMASKED(LOG_TRACE, "(WDOG) %08X <- %08X %s\n", 0x15300000 + (offset << 2), data, machine().describe_context());
 	COMBINE_DATA(&m_s3c240x_watchdog_regs[offset]);
@@ -1323,7 +1337,7 @@ void gp32_state::iic_resume()
 	m_s3c240x_iic_timer->adjust( attotime::from_msec( 1));
 }
 
-READ32_MEMBER(gp32_state::s3c240x_iic_r)
+uint32_t gp32_state::s3c240x_iic_r(offs_t offset)
 {
 	uint32_t data = m_s3c240x_iic_regs[offset];
 	switch (offset)
@@ -1339,7 +1353,7 @@ READ32_MEMBER(gp32_state::s3c240x_iic_r)
 	return data;
 }
 
-WRITE32_MEMBER(gp32_state::s3c240x_iic_w)
+void gp32_state::s3c240x_iic_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	LOGMASKED(LOG_TRACE, "(IIC) %08X <- %08X %s\n", 0x15400000 + (offset << 2), data, machine().describe_context());
 	COMBINE_DATA(&m_s3c240x_iic_regs[offset]);
@@ -1471,7 +1485,7 @@ void gp32_state::s3c240x_iis_recalc()
 	}
 }
 
-READ32_MEMBER(gp32_state::s3c240x_iis_r)
+uint32_t gp32_state::s3c240x_iis_r(offs_t offset)
 {
 	uint32_t data = m_s3c240x_iis_regs[offset];
 #if 0
@@ -1489,7 +1503,7 @@ READ32_MEMBER(gp32_state::s3c240x_iis_r)
 	return data;
 }
 
-WRITE32_MEMBER(gp32_state::s3c240x_iis_w)
+void gp32_state::s3c240x_iis_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	uint32_t old_value = m_s3c240x_iis_regs[offset];
 	LOGMASKED(LOG_TRACE, "(IIS) %08X <- %08X %s\n", 0x15508000 + (offset << 2), data, machine().describe_context());
@@ -1533,14 +1547,14 @@ TIMER_CALLBACK_MEMBER(gp32_state::s3c240x_iis_timer_exp)
 // RTC
 
 
-READ32_MEMBER(gp32_state::s3c240x_rtc_r)
+uint32_t gp32_state::s3c240x_rtc_r(offs_t offset)
 {
 	uint32_t data = m_s3c240x_rtc_regs[offset];
 	LOGMASKED(LOG_TRACE, "(RTC) %08X -> %08X %s\n", 0x15700040 + (offset << 2), data, machine().describe_context());
 	return data;
 }
 
-WRITE32_MEMBER(gp32_state::s3c240x_rtc_w)
+void gp32_state::s3c240x_rtc_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	LOGMASKED(LOG_TRACE, "(RTC) %08X <- %08X %s\n", 0x15700040 + (offset << 2), data, machine().describe_context());
 	COMBINE_DATA(&m_s3c240x_rtc_regs[offset]);
@@ -1549,14 +1563,14 @@ WRITE32_MEMBER(gp32_state::s3c240x_rtc_w)
 // A/D CONVERTER
 
 
-READ32_MEMBER(gp32_state::s3c240x_adc_r)
+uint32_t gp32_state::s3c240x_adc_r(offs_t offset)
 {
 	uint32_t data = m_s3c240x_adc_regs[offset];
 	LOGMASKED(LOG_TRACE, "(ADC) %08X -> %08X %s\n", 0x15800000 + (offset << 2), data, machine().describe_context());
 	return data;
 }
 
-WRITE32_MEMBER(gp32_state::s3c240x_adc_w)
+void gp32_state::s3c240x_adc_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	LOGMASKED(LOG_TRACE, "(ADC) %08X <- %08X %s\n", 0x15800000 + (offset << 2), data, machine().describe_context());
 	COMBINE_DATA(&m_s3c240x_adc_regs[offset]);
@@ -1565,14 +1579,14 @@ WRITE32_MEMBER(gp32_state::s3c240x_adc_w)
 // SPI
 
 
-READ32_MEMBER(gp32_state::s3c240x_spi_r)
+uint32_t gp32_state::s3c240x_spi_r(offs_t offset)
 {
 	uint32_t data = m_s3c240x_spi_regs[offset];
 	LOGMASKED(LOG_TRACE, "(SPI) %08X -> %08X %s\n", 0x15900000 + (offset << 2), data, machine().describe_context());
 	return data;
 }
 
-WRITE32_MEMBER(gp32_state::s3c240x_spi_w)
+void gp32_state::s3c240x_spi_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	LOGMASKED(LOG_TRACE, "(SPI) %08X <- %08X %s\n", 0x15900000 + (offset << 2), data, machine().describe_context());
 	COMBINE_DATA(&m_s3c240x_spi_regs[offset]);
@@ -1581,14 +1595,14 @@ WRITE32_MEMBER(gp32_state::s3c240x_spi_w)
 // MMC INTERFACE
 
 
-READ32_MEMBER(gp32_state::s3c240x_mmc_r)
+uint32_t gp32_state::s3c240x_mmc_r(offs_t offset)
 {
 	uint32_t data = m_s3c240x_mmc_regs[offset];
 	LOGMASKED(LOG_TRACE, "(MMC) %08X -> %08X %s\n", 0x15A00000 + (offset << 2), data, machine().describe_context());
 	return data;
 }
 
-WRITE32_MEMBER(gp32_state::s3c240x_mmc_w)
+void gp32_state::s3c240x_mmc_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	LOGMASKED(LOG_TRACE, "(MMC) %08X <- %08X %s\n", 0x15A00000 + (offset << 2), data, machine().describe_context());
 	COMBINE_DATA(&m_s3c240x_mmc_regs[offset]);
@@ -1610,7 +1624,7 @@ void gp32_state::s3c240x_machine_start()
 	m_s3c240x_iic_timer = machine().scheduler().timer_alloc(timer_expired_delegate(FUNC(gp32_state::s3c240x_iic_timer_exp),this), (void *)(uintptr_t)0);
 	m_s3c240x_iis_timer = machine().scheduler().timer_alloc(timer_expired_delegate(FUNC(gp32_state::s3c240x_iis_timer_exp),this), (void *)(uintptr_t)0);
 	m_s3c240x_lcd_timer = machine().scheduler().timer_alloc(timer_expired_delegate(FUNC(gp32_state::s3c240x_lcd_timer_exp),this), (void *)(uintptr_t)0);
-	m_eeprom_data = std::make_unique<uint8_t[]>(0x2000);
+	m_eeprom_data = std::make_unique<uint8_t[]>(0x2000); // a dump of the EEPROM (S524AB0X91) resulted to be 0x1000
 	m_nvram->set_base(m_eeprom_data.get(), 0x2000);
 	smc_init();
 	i2s_init();
@@ -1624,29 +1638,30 @@ void gp32_state::s3c240x_machine_reset()
 	m_s3c240x_iic.data_index = 0;
 }
 
-ADDRESS_MAP_START(gp32_state::gp32_map)
-	AM_RANGE(0x00000000, 0x0007ffff) AM_ROM
-	AM_RANGE(0x0c000000, 0x0c7fffff) AM_RAM AM_SHARE("s3c240x_ram")
-	AM_RANGE(0x14000000, 0x1400003b) AM_READWRITE(s3c240x_memcon_r, s3c240x_memcon_w)
-	AM_RANGE(0x14200000, 0x1420005b) AM_READWRITE(s3c240x_usb_host_r, s3c240x_usb_host_w)
-	AM_RANGE(0x14400000, 0x14400017) AM_READWRITE(s3c240x_irq_r, s3c240x_irq_w)
-	AM_RANGE(0x14600000, 0x1460007b) AM_READWRITE(s3c240x_dma_r, s3c240x_dma_w)
-	AM_RANGE(0x14800000, 0x14800017) AM_READWRITE(s3c240x_clkpow_r, s3c240x_clkpow_w)
-	AM_RANGE(0x14a00000, 0x14a003ff) AM_READWRITE(s3c240x_lcd_r, s3c240x_lcd_w)
-	AM_RANGE(0x14a00400, 0x14a007ff) AM_READWRITE(s3c240x_lcd_palette_r, s3c240x_lcd_palette_w)
-	AM_RANGE(0x15000000, 0x1500002b) AM_READWRITE(s3c240x_uart_0_r, s3c240x_uart_0_w)
-	AM_RANGE(0x15004000, 0x1500402b) AM_READWRITE(s3c240x_uart_1_r, s3c240x_uart_1_w)
-	AM_RANGE(0x15100000, 0x15100043) AM_READWRITE(s3c240x_pwm_r, s3c240x_pwm_w)
-	AM_RANGE(0x15200140, 0x152001fb) AM_READWRITE(s3c240x_usb_device_r, s3c240x_usb_device_w)
-	AM_RANGE(0x15300000, 0x1530000b) AM_READWRITE(s3c240x_watchdog_r, s3c240x_watchdog_w)
-	AM_RANGE(0x15400000, 0x1540000f) AM_READWRITE(s3c240x_iic_r, s3c240x_iic_w)
-	AM_RANGE(0x15508000, 0x15508013) AM_READWRITE(s3c240x_iis_r, s3c240x_iis_w)
-	AM_RANGE(0x15600000, 0x1560005b) AM_READWRITE(s3c240x_gpio_r, s3c240x_gpio_w)
-	AM_RANGE(0x15700040, 0x1570008b) AM_READWRITE(s3c240x_rtc_r, s3c240x_rtc_w)
-	AM_RANGE(0x15800000, 0x15800007) AM_READWRITE(s3c240x_adc_r, s3c240x_adc_w)
-	AM_RANGE(0x15900000, 0x15900017) AM_READWRITE(s3c240x_spi_r, s3c240x_spi_w)
-	AM_RANGE(0x15a00000, 0x15a0003f) AM_READWRITE(s3c240x_mmc_r, s3c240x_mmc_w)
-ADDRESS_MAP_END
+void gp32_state::gp32_map(address_map &map)
+{
+	map(0x00000000, 0x0007ffff).rom();
+	map(0x0c000000, 0x0c7fffff).ram().share("s3c240x_ram");
+	map(0x14000000, 0x1400003b).rw(FUNC(gp32_state::s3c240x_memcon_r), FUNC(gp32_state::s3c240x_memcon_w));
+	map(0x14200000, 0x1420005b).rw(FUNC(gp32_state::s3c240x_usb_host_r), FUNC(gp32_state::s3c240x_usb_host_w));
+	map(0x14400000, 0x14400017).rw(FUNC(gp32_state::s3c240x_irq_r), FUNC(gp32_state::s3c240x_irq_w));
+	map(0x14600000, 0x1460007b).rw(FUNC(gp32_state::s3c240x_dma_r), FUNC(gp32_state::s3c240x_dma_w));
+	map(0x14800000, 0x14800017).rw(FUNC(gp32_state::s3c240x_clkpow_r), FUNC(gp32_state::s3c240x_clkpow_w));
+	map(0x14a00000, 0x14a003ff).rw(FUNC(gp32_state::s3c240x_lcd_r), FUNC(gp32_state::s3c240x_lcd_w));
+	map(0x14a00400, 0x14a007ff).rw(FUNC(gp32_state::s3c240x_lcd_palette_r), FUNC(gp32_state::s3c240x_lcd_palette_w));
+	map(0x15000000, 0x1500002b).rw(FUNC(gp32_state::s3c240x_uart_0_r), FUNC(gp32_state::s3c240x_uart_0_w));
+	map(0x15004000, 0x1500402b).rw(FUNC(gp32_state::s3c240x_uart_1_r), FUNC(gp32_state::s3c240x_uart_1_w));
+	map(0x15100000, 0x15100043).rw(FUNC(gp32_state::s3c240x_pwm_r), FUNC(gp32_state::s3c240x_pwm_w));
+	map(0x15200140, 0x152001fb).rw(FUNC(gp32_state::s3c240x_usb_device_r), FUNC(gp32_state::s3c240x_usb_device_w));
+	map(0x15300000, 0x1530000b).rw(FUNC(gp32_state::s3c240x_watchdog_r), FUNC(gp32_state::s3c240x_watchdog_w));
+	map(0x15400000, 0x1540000f).rw(FUNC(gp32_state::s3c240x_iic_r), FUNC(gp32_state::s3c240x_iic_w));
+	map(0x15508000, 0x15508013).rw(FUNC(gp32_state::s3c240x_iis_r), FUNC(gp32_state::s3c240x_iis_w));
+	map(0x15600000, 0x1560005b).rw(FUNC(gp32_state::s3c240x_gpio_r), FUNC(gp32_state::s3c240x_gpio_w));
+	map(0x15700040, 0x1570008b).rw(FUNC(gp32_state::s3c240x_rtc_r), FUNC(gp32_state::s3c240x_rtc_w));
+	map(0x15800000, 0x15800007).rw(FUNC(gp32_state::s3c240x_adc_r), FUNC(gp32_state::s3c240x_adc_w));
+	map(0x15900000, 0x15900017).rw(FUNC(gp32_state::s3c240x_spi_r), FUNC(gp32_state::s3c240x_spi_w));
+	map(0x15a00000, 0x15a0003f).rw(FUNC(gp32_state::s3c240x_mmc_r), FUNC(gp32_state::s3c240x_mmc_w));
+}
 
 static INPUT_PORTS_START( gp32 )
 	PORT_START("IN0")
@@ -1673,52 +1688,52 @@ void gp32_state::machine_reset()
 	s3c240x_machine_reset();
 }
 
-MACHINE_CONFIG_START(gp32_state::gp32)
-	MCFG_CPU_ADD("maincpu", ARM9, 40000000)
-	MCFG_CPU_PROGRAM_MAP(gp32_map)
+void gp32_state::gp32(machine_config &config)
+{
+	ARM9(config, m_maincpu, 40000000);
+	m_maincpu->set_addrmap(AS_PROGRAM, &gp32_state::gp32_map);
 
-	MCFG_PALETTE_ADD("palette", 32768)
+	PALETTE(config, m_palette).set_entries(32768);
 
-	MCFG_SCREEN_ADD("screen", LCD)
-	MCFG_SCREEN_REFRESH_RATE(60)
-	MCFG_SCREEN_VBLANK_TIME(ATTOSECONDS_IN_USEC(2500)) /* not accurate */
-	MCFG_SCREEN_SIZE(240, 320)
-	MCFG_SCREEN_VISIBLE_AREA(0, 239, 0, 319)
-	MCFG_SCREEN_UPDATE_DRIVER(gp32_state, screen_update_gp32)
+	SCREEN(config, m_screen, SCREEN_TYPE_LCD);
+	m_screen->set_refresh_hz(60);
+	m_screen->set_vblank_time(ATTOSECONDS_IN_USEC(2500)); /* not accurate */
+	// TODO: bad setup that theoretically should fail a validation check plus console doesn't have vertical screen anyway
+	// TODO: retrieve actual defaults from BIOS
+	m_screen->set_size(240, 320);
+	m_screen->set_visarea(0, 239, 0, 319);
+	m_screen->set_screen_update(FUNC(gp32_state::screen_update_gp32));
 
-	/* 320x240 is 4:3 but ROT270 causes an aspect ratio of 3:4 by default */
-	MCFG_DEFAULT_LAYOUT(layout_lcd_rot)
+	SPEAKER(config, "lspeaker").front_left();
+	SPEAKER(config, "rspeaker").front_right();
+	DAC_16BIT_R2R_TWOS_COMPLEMENT(config, m_ldac, 0).add_route(ALL_OUTPUTS, "lspeaker", 1.0); // unknown DAC
+	DAC_16BIT_R2R_TWOS_COMPLEMENT(config, m_rdac, 0).add_route(ALL_OUTPUTS, "rspeaker", 1.0); // unknown DAC
+	voltage_regulator_device &vref(VOLTAGE_REGULATOR(config, "vref"));
+	vref.add_route(0, "ldac", 1.0, DAC_VREF_POS_INPUT); vref.add_route(0, "ldac", -1.0, DAC_VREF_NEG_INPUT);
+	vref.add_route(0, "rdac", 1.0, DAC_VREF_POS_INPUT); vref.add_route(0, "rdac", -1.0, DAC_VREF_NEG_INPUT);
 
-	MCFG_SPEAKER_STANDARD_STEREO("lspeaker", "rspeaker")
-	MCFG_SOUND_ADD("ldac", DAC_16BIT_R2R_TWOS_COMPLEMENT, 0) MCFG_SOUND_ROUTE(ALL_OUTPUTS, "lspeaker", 1.0) // unknown DAC
-	MCFG_SOUND_ADD("rdac", DAC_16BIT_R2R_TWOS_COMPLEMENT, 0) MCFG_SOUND_ROUTE(ALL_OUTPUTS, "rspeaker", 1.0) // unknown DAC
-	MCFG_DEVICE_ADD("vref", VOLTAGE_REGULATOR, 0) MCFG_VOLTAGE_REGULATOR_OUTPUT(5.0)
-	MCFG_SOUND_ROUTE_EX(0, "ldac", 1.0, DAC_VREF_POS_INPUT) MCFG_SOUND_ROUTE_EX(0, "ldac", -1.0, DAC_VREF_NEG_INPUT)
-	MCFG_SOUND_ROUTE_EX(0, "rdac", 1.0, DAC_VREF_POS_INPUT) MCFG_SOUND_ROUTE_EX(0, "rdac", -1.0, DAC_VREF_NEG_INPUT)
+	NVRAM(config, "nvram", nvram_device::DEFAULT_ALL_1);
 
-	MCFG_NVRAM_ADD_1FILL("nvram")
+	SMARTMEDIA(config, m_smartmedia, 0);
 
-	MCFG_DEVICE_ADD("smartmedia", SMARTMEDIA, 0)
-
-	MCFG_SOFTWARE_LIST_ADD("memc_list","gp32")
-MACHINE_CONFIG_END
+	SOFTWARE_LIST(config, "memc_list").set_original("gp32");
+}
 
 ROM_START( gp32 )
 	ROM_REGION( 0x80000, "maincpu", 0 )
 	ROM_SYSTEM_BIOS( 0, "157e", "Firmware 1.5.7 (English)" )
-	ROMX_LOAD( "gp32157e.bin", 0x000000, 0x080000, CRC(b1e35643) SHA1(1566bc2a27980602e9eb501cf8b2d62939bfd1e5), ROM_BIOS(1) )
+	ROMX_LOAD( "gp32157e.bin", 0x000000, 0x080000, CRC(b1e35643) SHA1(1566bc2a27980602e9eb501cf8b2d62939bfd1e5), ROM_BIOS(0) )
 	ROM_SYSTEM_BIOS( 1, "100k", "Firmware 1.0.0 (Korean)" )
-	ROMX_LOAD( "gp32100k.bin", 0x000000, 0x080000, CRC(d9925ac9) SHA1(3604d0d7210ed72eddd3e3e0c108f1102508423c), ROM_BIOS(2) )
+	ROMX_LOAD( "gp32100k.bin", 0x000000, 0x080000, CRC(d9925ac9) SHA1(3604d0d7210ed72eddd3e3e0c108f1102508423c), ROM_BIOS(1) )
 	ROM_SYSTEM_BIOS( 2, "156k", "Firmware 1.5.6 (Korean)" )
-	ROMX_LOAD( "gp32156k.bin", 0x000000, 0x080000, CRC(667fb1c8) SHA1(d179ab8e96411272b6a1d683e59da752067f9da8), ROM_BIOS(3) )
+	ROMX_LOAD( "gp32156k.bin", 0x000000, 0x080000, CRC(667fb1c8) SHA1(d179ab8e96411272b6a1d683e59da752067f9da8), ROM_BIOS(2) )
 	ROM_SYSTEM_BIOS( 3, "166m", "Firmware 1.6.6 (European)" )
-	ROMX_LOAD( "gp32166m.bin", 0x000000, 0x080000, CRC(4548a840) SHA1(1ad0cab0af28fb45c182e5e8c87ead2aaa4fffe1), ROM_BIOS(4) )
+	ROMX_LOAD( "gp32166m.bin", 0x000000, 0x080000, CRC(4548a840) SHA1(1ad0cab0af28fb45c182e5e8c87ead2aaa4fffe1), ROM_BIOS(3) )
 	ROM_SYSTEM_BIOS( 4, "mfv2", "Mr. Spiv Multi Firmware V2" )
-	ROMX_LOAD( "gp32mfv2.bin", 0x000000, 0x080000, CRC(7ddaaaeb) SHA1(5a85278f721beb3b00125db5c912d1dc552c5897), ROM_BIOS(5) )
-#if 0
-	ROM_SYSTEM_BIOS( 5, "test", "test" )
-	ROMX_LOAD( "test.bin", 0x000000, 0x080000, CRC(00000000) SHA1(0000000000000000000000000000000000000000), ROM_BIOS(6) )
-#endif
+	ROMX_LOAD( "gp32mfv2.bin", 0x000000, 0x080000, CRC(7ddaaaeb) SHA1(5a85278f721beb3b00125db5c912d1dc552c5897), ROM_BIOS(4) )
+
+	ROM_REGION( 0x4000, "plds", ROMREGION_ERASEFF )
+	ROM_LOAD( "x2c32.jed", 0, 0x3bbb, CRC(eeec10d8) SHA1(34c4b1b865511517a5de1fa352228d95cda387c5) ) // JEDEC format for the time being. X2C32: 32 Macrocell CoolRunner-II CPLD
 ROM_END
 
-CONS(2001, gp32, 0, 0, gp32, gp32, gp32_state, 0, "Game Park Holdings", "GP32", ROT270|MACHINE_NOT_WORKING|MACHINE_NO_SOUND)
+CONS(2001, gp32, 0, 0, gp32, gp32, gp32_state, empty_init, "Game Park Holdings", "GP32", ROT270 | MACHINE_NOT_WORKING | MACHINE_IMPERFECT_SOUND | MACHINE_IMPERFECT_COLORS )

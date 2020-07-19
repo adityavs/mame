@@ -13,6 +13,8 @@
 #include "machine/74259.h"
 #include "machine/watchdog.h"
 #include "sound/discrete.h"
+#include "emupal.h"
+#include "tilemap.h"
 
 /* Discrete Sound Input Nodes */
 #define CANYON_MOTOR1_DATA      NODE_01
@@ -42,17 +44,15 @@ public:
 	void canyon(machine_config &config);
 
 protected:
-	DECLARE_READ8_MEMBER(canyon_switches_r);
-	DECLARE_READ8_MEMBER(canyon_options_r);
-	DECLARE_WRITE8_MEMBER(output_latch_w);
-	DECLARE_WRITE_LINE_MEMBER(led1_w);
-	DECLARE_WRITE_LINE_MEMBER(led2_w);
-	DECLARE_WRITE8_MEMBER(canyon_videoram_w);
+	uint8_t canyon_switches_r(offs_t offset);
+	uint8_t canyon_options_r(offs_t offset);
+	void output_latch_w(offs_t offset, uint8_t data);
+	void canyon_videoram_w(offs_t offset, uint8_t data);
 	TILE_GET_INFO_MEMBER(get_bg_tile_info);
-	DECLARE_PALETTE_INIT(canyon);
+	void canyon_palette(palette_device &palette) const;
 	uint32_t screen_update_canyon(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
-	DECLARE_WRITE8_MEMBER(canyon_motor_w);
-	DECLARE_WRITE8_MEMBER(canyon_explode_w);
+	void canyon_motor_w(offs_t offset, uint8_t data);
+	void canyon_explode_w(uint8_t data);
 	void draw_sprites( bitmap_ind16 &bitmap, const rectangle &cliprect );
 	void draw_bombs( bitmap_ind16 &bitmap, const rectangle &cliprect );
 
@@ -64,7 +64,7 @@ private:
 	required_shared_ptr<uint8_t> m_videoram;
 
 	required_device<f9334_device> m_outlatch;
-	required_device<discrete_device> m_discrete;
+	required_device<discrete_sound_device> m_discrete;
 
 	/* video-related */
 	tilemap_t  *m_bg_tilemap;
@@ -77,6 +77,6 @@ private:
 
 
 /*----------- defined in audio/canyon.c -----------*/
-DISCRETE_SOUND_EXTERN( canyon );
+DISCRETE_SOUND_EXTERN( canyon_discrete );
 
 #endif // MAME_INCLUDES_CANYON_H

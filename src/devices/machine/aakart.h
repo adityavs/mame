@@ -14,17 +14,6 @@ Acorn Archimedes KART interface
 
 
 //**************************************************************************
-//  INTERFACE CONFIGURATION MACROS
-//**************************************************************************
-
-#define MCFG_AAKART_OUT_TX_CB(_devcb) \
-	devcb = &downcast<aakart_device &>(*device).set_out_tx_callback(DEVCB_##_devcb);
-
-#define MCFG_AAKART_OUT_RX_CB(_devcb) \
-	devcb = &downcast<aakart_device &>(*device).set_out_rx_callback(DEVCB_##_devcb);
-
-
-//**************************************************************************
 //  TYPE DEFINITIONS
 //**************************************************************************
 
@@ -36,12 +25,12 @@ public:
 	// construction/destruction
 	aakart_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
 
-	template <class Object> devcb_base &set_out_tx_callback(Object &&cb) { return m_out_tx_cb.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_out_rx_callback(Object &&cb) { return m_out_rx_cb.set_callback(std::forward<Object>(cb)); }
+	auto out_tx_callback() { return m_out_tx_cb.bind(); }
+	auto out_rx_callback() { return m_out_rx_cb.bind(); }
 
 	// I/O operations
-	DECLARE_WRITE8_MEMBER( write );
-	DECLARE_READ8_MEMBER( read );
+	void write(uint8_t data);
+	uint8_t read();
 	void send_keycode_down(uint8_t row, uint8_t col);
 	void send_keycode_up(uint8_t row, uint8_t col);
 	void send_mouse(uint8_t x, uint8_t y);

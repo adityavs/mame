@@ -49,19 +49,12 @@ public:
 		: driver_device(mconfig, type, tag)
 		, m_maincpu(*this, CDP1802_TAG)
 		, m_vis(*this, CDP1869_TAG)
+		, m_leds(*this, "led%u", 0U)
 	{ }
 
-	required_device<cosmac_device> m_maincpu;
-	required_device<cdp1869_device> m_vis;
-
-	virtual void machine_start() override;
-	virtual void machine_reset() override;
-
-	virtual void video_start() override;
-
-	DECLARE_WRITE8_MEMBER( cdp1869_w );
-	DECLARE_WRITE8_MEMBER( destryer_out1_w );
-	DECLARE_WRITE8_MEMBER( altair_out1_w );
+	void cdp1869_w(offs_t offset, uint8_t data);
+	void destryer_out1_w(uint8_t data);
+	void altair_out1_w(uint8_t data);
 
 	DECLARE_READ_LINE_MEMBER( clear_r );
 
@@ -72,17 +65,6 @@ public:
 	CDP1869_CHAR_RAM_READ_MEMBER(cidelsa_charram_r);
 	CDP1869_CHAR_RAM_WRITE_MEMBER(cidelsa_charram_w);
 	CDP1869_PCB_READ_MEMBER(cidelsa_pcb_r);
-
-	// cpu state
-	int m_reset;
-
-	// video state
-	int m_cdp1802_q;
-	int m_cdp1869_pcb;
-
-	uint8_t *m_pageram;
-	std::unique_ptr<uint8_t[]> m_pcbram;
-	std::unique_ptr<uint8_t[]> m_charram;
 
 	void destryera(machine_config &config);
 	void altair(machine_config &config);
@@ -95,8 +77,28 @@ public:
 	void destryer_io_map(address_map &map);
 	void destryer_map(address_map &map);
 	void destryera_map(address_map &map);
+
 protected:
 	virtual void device_timer(emu_timer &timer, device_timer_id id, int param, void *ptr) override;
+	virtual void machine_start() override;
+	virtual void machine_reset() override;
+
+	virtual void video_start() override;
+
+	required_device<cosmac_device> m_maincpu;
+	required_device<cdp1869_device> m_vis;
+	output_finder<3> m_leds;
+
+	// cpu state
+	int m_reset;
+
+	// video state
+	int m_cdp1802_q;
+	int m_cdp1869_pcb;
+
+	uint8_t *m_pageram;
+	std::unique_ptr<uint8_t[]> m_pcbram;
+	std::unique_ptr<uint8_t[]> m_charram;
 };
 
 class draco_state : public cidelsa_state
@@ -107,31 +109,32 @@ public:
 			m_psg(*this, AY8910_TAG)
 	{ }
 
-	required_device<ay8910_device> m_psg;
-
-	virtual void machine_start() override;
-
-	DECLARE_READ8_MEMBER( sound_in_r );
-	DECLARE_READ8_MEMBER( psg_r );
-	DECLARE_WRITE8_MEMBER( sound_bankswitch_w );
-	DECLARE_WRITE8_MEMBER( sound_g_w );
-	DECLARE_WRITE8_MEMBER( psg_w );
-	DECLARE_WRITE8_MEMBER( out1_w );
-	DECLARE_WRITE8_MEMBER( psg_pb_w );
+	uint8_t sound_in_r();
+	uint8_t psg_r();
+	void sound_bankswitch_w(uint8_t data);
+	void sound_g_w(uint8_t data);
+	void psg_w(uint8_t data);
+	void out1_w(uint8_t data);
+	void psg_pb_w(uint8_t data);
 
 	CDP1869_CHAR_RAM_READ_MEMBER(draco_charram_r);
 	CDP1869_CHAR_RAM_WRITE_MEMBER(draco_charram_w);
 	CDP1869_PCB_READ_MEMBER(draco_pcb_r);
 
-	// sound state
-	int m_sound;
-	int m_psg_latch;
 	void draco(machine_config &config);
 	void draco_video(machine_config &config);
 	void draco_io_map(address_map &map);
 	void draco_map(address_map &map);
 	void draco_page_ram(address_map &map);
 	void draco_sound_map(address_map &map);
+
+protected:
+	virtual void machine_start() override;
+
+	required_device<ay8910_device> m_psg;
+	// sound state
+	int m_sound;
+	int m_psg_latch;
 };
 
 #endif // MAME_INCLUDES_CIDELSA_H

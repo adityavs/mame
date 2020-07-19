@@ -26,16 +26,6 @@
 
 
 //**************************************************************************
-//  INTERFACE CONFIGURATION MACROS
-//**************************************************************************
-
-#define MCFG_CDP1863_ADD(_tag, _clock, _clock2) \
-	MCFG_DEVICE_ADD(_tag, CDP1863, _clock) \
-	downcast<cdp1863_device &>(*device).set_clock2(_clock2);
-
-
-
-//**************************************************************************
 //  TYPE DEFINITIONS
 //**************************************************************************
 
@@ -52,10 +42,9 @@ public:
 	void set_clock2(int clock2) { m_clock2 = clock2; }
 	void set_clock2(const XTAL &xtal) { xtal.validate("selecting cdp1863 clock"); set_clock2(xtal.value()); }
 
-	DECLARE_WRITE8_MEMBER( str_w );
-	void str_w(uint8_t data);
+	void str_w(uint8_t data) { m_latch = data; }
 
-	DECLARE_WRITE_LINE_MEMBER( oe_w );
+	void oe_w(int state);
 
 	void set_clk1(int clock);
 	void set_clk2(int clock);

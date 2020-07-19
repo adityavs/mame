@@ -15,9 +15,10 @@
 
 #include "epson_sio.h"
 #include "cpu/z80/z80.h"
+#include "imagedev/floppy.h"
 #include "machine/ram.h"
 #include "machine/upd765.h"
-#include "machine/z80dart.h"
+#include "machine/z80sio.h"
 
 
 //**************************************************************************
@@ -55,9 +56,9 @@ private:
 	DECLARE_WRITE_LINE_MEMBER( rxc_w );
 	DECLARE_WRITE_LINE_MEMBER( pinc_w );
 
-	DECLARE_READ8_MEMBER( rom_disable_r );
-	DECLARE_READ8_MEMBER( upd765_tc_r );
-	DECLARE_WRITE8_MEMBER( fdc_control_w );
+	uint8_t rom_disable_r();
+	uint8_t upd765_tc_r();
+	void fdc_control_w(uint8_t data);
 
 	void cpu_io(address_map &map);
 	void cpu_mem(address_map &map);
@@ -67,9 +68,7 @@ private:
 	required_device<upd765a_device> m_fdc;
 	required_device<upd7201_device> m_mpsc;
 	required_device<epson_sio_device> m_sio_output;
-
-	floppy_image_device *m_fd0;
-	floppy_image_device *m_fd1;
+	required_device_array<floppy_connector, 2> m_fd;
 
 	emu_timer *m_timer_serial;
 	emu_timer *m_timer_tc;

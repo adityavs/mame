@@ -13,7 +13,7 @@ public:
 	deco_222_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
 
 protected:
-	class mi_decrypt : public mi_default_normal {
+	class mi_decrypt : public mi_default {
 	public:
 		bool had_written;
 
@@ -31,7 +31,7 @@ protected:
 
 	virtual void device_start() override;
 	virtual void device_reset() override;
-	virtual util::disasm_interface *create_disassembler() override;
+	virtual std::unique_ptr<util::disasm_interface> create_disassembler() override;
 };
 
 
@@ -41,7 +41,7 @@ public:
 	deco_c10707_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
 
 protected:
-	class mi_decrypt : public mi_default_normal {
+	class mi_decrypt : public mi_default {
 	public:
 		bool had_written;
 
@@ -60,7 +60,7 @@ protected:
 
 	virtual void device_start() override;
 	virtual void device_reset() override;
-	virtual util::disasm_interface *create_disassembler() override;
+	virtual std::unique_ptr<util::disasm_interface> create_disassembler() override;
 };
 
 

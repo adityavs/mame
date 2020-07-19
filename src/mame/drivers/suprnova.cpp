@@ -89,9 +89,9 @@ NEP-16
  \-                                                    \-
 
  Notes:
-       *: unpopulated position for surface mounted 16MBit SOP44 MASK ROM
+       *: unpopulated position for surface mounted 16MBit SOP44 mask ROM
        U8 and U10 are socketed 27C040 EPROM
-       All other ROMs are surface mounted SOP44 MASK ROM
+       All other ROMs are surface mounted SOP44 mask ROM
 
 Cart Layout
 -----------
@@ -154,7 +154,6 @@ NEP-16
 #include "machine/nvram.h"
 #include "sound/ymz280b.h"
 
-#include "screen.h"
 #include "speaker.h"
 
 
@@ -230,7 +229,7 @@ void skns_state::hit_recalc()
 */
 }
 
-WRITE32_MEMBER(skns_state::hit_w)
+void skns_state::hit_w(offs_t offset, uint32_t data)
 //void hit_w(uint32_t adr, uint32_t data, int type)
 {
 	hit_t &hit = m_hit;
@@ -295,7 +294,7 @@ WRITE32_MEMBER(skns_state::hit_w)
 	hit_recalc();
 }
 
-WRITE32_MEMBER(skns_state::hit2_w)
+void skns_state::hit2_w(uint32_t data)
 {
 	hit_t &hit = m_hit;
 
@@ -328,7 +327,7 @@ WRITE32_MEMBER(skns_state::hit2_w)
 }
 
 
-READ32_MEMBER(skns_state::hit_r)
+uint32_t skns_state::hit_r(offs_t offset)
 //uint32_t hit_r(uint32_t adr, int type)
 {
 	hit_t &hit = m_hit;
@@ -498,10 +497,10 @@ TIMER_DEVICE_CALLBACK_MEMBER(skns_state::irq)
 
 **********************************************************************************/
 
+template <int P>
 CUSTOM_INPUT_MEMBER(skns_state::paddle_r)
 {
-	const char *tag = (const char *)param;
-	return ioport(tag)->read();
+	return m_paddle[P]->read();
 }
 
 static INPUT_PORTS_START( skns )        /* 3 buttons, 2 players */
@@ -556,12 +555,12 @@ static INPUT_PORTS_START( skns )        /* 3 buttons, 2 players */
 	PORT_DIPNAME( 0x00000080, 0x00000080, "Freeze" )
 	PORT_DIPSETTING(          0x00000000, "Freezes the game")
 	PORT_DIPSETTING(          0x00000080, "Right value")
-	PORT_BIT( 0x0000ff00, IP_ACTIVE_HIGH, IPT_SPECIAL ) PORT_CUSTOM_MEMBER(DEVICE_SELF, skns_state,paddle_r, "Paddle C")
-	PORT_BIT( 0x00ff0000, IP_ACTIVE_HIGH, IPT_SPECIAL ) PORT_CUSTOM_MEMBER(DEVICE_SELF, skns_state,paddle_r, "Paddle B")
-	PORT_BIT( 0xff000000, IP_ACTIVE_HIGH, IPT_SPECIAL ) PORT_CUSTOM_MEMBER(DEVICE_SELF, skns_state,paddle_r, "Paddle A")
+	PORT_BIT( 0x0000ff00, IP_ACTIVE_HIGH, IPT_CUSTOM ) PORT_CUSTOM_MEMBER(skns_state, paddle_r<2>) // Paddle C
+	PORT_BIT( 0x00ff0000, IP_ACTIVE_HIGH, IPT_CUSTOM ) PORT_CUSTOM_MEMBER(skns_state, paddle_r<1>) // Paddle B
+	PORT_BIT( 0xff000000, IP_ACTIVE_HIGH, IPT_CUSTOM ) PORT_CUSTOM_MEMBER(skns_state, paddle_r<0>) // Paddle A
 
 	PORT_START("40000c")
-	PORT_BIT( 0x000000ff, IP_ACTIVE_HIGH, IPT_SPECIAL ) PORT_CUSTOM_MEMBER(DEVICE_SELF, skns_state,paddle_r, "Paddle D")
+	PORT_BIT( 0x000000ff, IP_ACTIVE_HIGH, IPT_CUSTOM ) PORT_CUSTOM_MEMBER(skns_state, paddle_r<3>) // Paddle D
 	PORT_BIT( 0xffffff00, IP_ACTIVE_LOW, IPT_UNUSED )
 
 	PORT_START("Paddle A")
@@ -643,7 +642,7 @@ INPUT_PORTS_END
 
 
 
-WRITE32_MEMBER(skns_state::io_w)
+void skns_state::io_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	switch(offset) {
 	case 2:
@@ -706,7 +705,7 @@ WRITE32_MEMBER(skns_state::io_w)
 
 /* end old driver code */
 
-WRITE32_MEMBER(skns_state::v3t_w)
+void skns_state::v3t_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	COMBINE_DATA(&m_v3t_ram[offset]);
 
@@ -722,107 +721,89 @@ WRITE32_MEMBER(skns_state::v3t_w)
 	m_btiles[offset*4+3] = (data & 0x000000ff) >> 0;
 }
 
-ADDRESS_MAP_START(skns_state::skns_map)
-	AM_RANGE(0x00000000, 0x0007ffff) AM_ROM /* BIOS ROM */
-	AM_RANGE(0x00400000, 0x0040000f) AM_WRITE(io_w) /* I/O Write */
-	AM_RANGE(0x00400000, 0x00400003) AM_READ_PORT("400000")
-	AM_RANGE(0x00400004, 0x00400007) AM_READ_PORT("400004")
+void skns_state::skns_map(address_map &map)
+{
+	map(0x00000000, 0x0007ffff).rom(); /* BIOS ROM */
+	map(0x00400000, 0x0040000f).w(FUNC(skns_state::io_w)); /* I/O Write */
+	map(0x00400000, 0x00400003).portr("400000");
+	map(0x00400004, 0x00400007).portr("400004");
 	/* In between is write only */
-	AM_RANGE(0x0040000c, 0x0040000f) AM_READ_PORT("40000c")
-	AM_RANGE(0x00800000, 0x00801fff) AM_RAM AM_SHARE("nvram") /* 'backup' RAM */
-	AM_RANGE(0x00c00000, 0x00c00003) AM_DEVREADWRITE8("ymz", ymz280b_device, read, write, 0xffff0000) /* ymz280_w (sound) */
-	AM_RANGE(0x01000000, 0x0100000f) AM_DEVREADWRITE8("rtc", msm6242_device, read, write, 0xffffffff)
-	AM_RANGE(0x01800000, 0x01800003) AM_WRITE(hit2_w)
-	AM_RANGE(0x02000000, 0x02003fff) AM_RAM AM_SHARE("spriteram") /* sprite ram */
-	AM_RANGE(0x02100000, 0x0210003f) AM_RAM AM_SHARE("spc_regs") /* sprite registers */
-	AM_RANGE(0x02400000, 0x0240007f) AM_RAM_WRITE(v3_regs_w) AM_SHARE("v3_regs") /* tilemap registers */
-	AM_RANGE(0x02500000, 0x02503fff) AM_RAM_WRITE(tilemapA_w) AM_SHARE("tilemapa_ram") /* tilemap A */
-	AM_RANGE(0x02504000, 0x02507fff) AM_RAM_WRITE(tilemapB_w) AM_SHARE("tilemapb_ram") /* tilemap B */
-	AM_RANGE(0x02600000, 0x02607fff) AM_RAM AM_SHARE("v3slc_ram") /* tilemap linescroll */
-	AM_RANGE(0x02a00000, 0x02a0001f) AM_RAM_WRITE(pal_regs_w) AM_SHARE("pal_regs")
-	AM_RANGE(0x02a40000, 0x02a5ffff) AM_RAM_WRITE(palette_ram_w) AM_SHARE("palette_ram")
-	AM_RANGE(0x02f00000, 0x02f000ff) AM_READWRITE(hit_r, hit_w)
-	AM_RANGE(0x04000000, 0x041fffff) AM_ROMBANK("bank1") /* GAME ROM */
-	AM_RANGE(0x04800000, 0x0483ffff) AM_RAM_WRITE(v3t_w) AM_SHARE("v3t_ram") /* tilemap b ram based tiles */
-	AM_RANGE(0x06000000, 0x060fffff) AM_RAM AM_SHARE("main_ram")
-	AM_RANGE(0xc0000000, 0xc0000fff) AM_RAM AM_SHARE("cache_ram") /* 'cache' RAM */
-ADDRESS_MAP_END
+	map(0x0040000c, 0x0040000f).portr("40000c");
+	map(0x00800000, 0x00801fff).ram().share("nvram"); /* 'backup' RAM */
+	map(0x00c00000, 0x00c00001).rw("ymz", FUNC(ymz280b_device::read), FUNC(ymz280b_device::write)); /* ymz280_w (sound) */
+	map(0x01000000, 0x0100000f).rw("rtc", FUNC(msm6242_device::read), FUNC(msm6242_device::write));
+	map(0x01800000, 0x01800003).w(FUNC(skns_state::hit2_w));
+	map(0x02000000, 0x02003fff).ram().share("spriteram"); /* sprite ram */
+	map(0x02100000, 0x0210003f).ram().share("spc_regs"); /* sprite registers */
+	map(0x02400000, 0x0240007f).ram().w(FUNC(skns_state::v3_regs_w)).share("v3_regs"); /* tilemap registers */
+	map(0x02500000, 0x02503fff).ram().w(FUNC(skns_state::tilemapA_w)).share("tilemapa_ram"); /* tilemap A */
+	map(0x02504000, 0x02507fff).ram().w(FUNC(skns_state::tilemapB_w)).share("tilemapb_ram"); /* tilemap B */
+	map(0x02600000, 0x02607fff).ram().share("v3slc_ram"); /* tilemap linescroll */
+	map(0x02a00000, 0x02a0001f).ram().w(FUNC(skns_state::pal_regs_w)).share("pal_regs");
+	map(0x02a40000, 0x02a5ffff).ram().w(FUNC(skns_state::palette_ram_w)).share("palette_ram");
+	map(0x02f00000, 0x02f000ff).rw(FUNC(skns_state::hit_r), FUNC(skns_state::hit_w));
+	map(0x04000000, 0x041fffff).bankr("bank1"); /* GAME ROM */
+	map(0x04800000, 0x0483ffff).ram().w(FUNC(skns_state::v3t_w)).share("v3t_ram"); /* tilemap b ram based tiles */
+	map(0x06000000, 0x060fffff).ram().share("main_ram");
+	map(0xc0000000, 0xc0000fff).ram().share("cache_ram"); /* 'cache' RAM */
+}
 
 /***** GFX DECODE *****/
 
-static const gfx_layout skns_tilemap_layout =
-{
-	16,16,
-	RGN_FRAC(1,1),
-	8,
-	{ 0, 1, 2, 3, 4, 5, 6, 7 },
-	{ 0*8, 1*8, 2*8, 3*8, 4*8, 5*8, 6*8, 7*8,
-		8*8, 9*8, 10*8, 11*8, 12*8, 13*8, 14*8, 15*8 },
-	{ 0*128, 1*128, 2*128, 3*128, 4*128, 5*128, 6*128, 7*128,
-		8*128, 9*128, 10*128, 11*128, 12*128, 13*128, 14*128, 15*128 },
-	16*16*8
-};
-
-static const gfx_layout skns_4bpptilemap_layout =
-{
-	16,16,
-	RGN_FRAC(1,1),
-	4,
-	{ 0, 1, 2, 3  },
-	{ 1*4, 0*4, 3*4, 2*4, 5*4, 4*4, 7*4, 6*4,
-		9*4, 8*4, 11*4, 10*4, 13*4, 12*4, 15*4, 14*4 },
-	{ 0*64, 1*64, 2*64, 3*64, 4*64, 5*64, 6*64, 7*64,
-		8*64, 9*64, 10*64, 11*64, 12*64, 13*64, 14*64, 15*64 },
-	16*16*4
-};
-
 static GFXDECODE_START( skns_bg )
 	/* "spritegen" is sprites, RLE encoded */
-	GFXDECODE_ENTRY( "gfx2", 0, skns_tilemap_layout, 0x000, 128 )
-	GFXDECODE_ENTRY( "gfx3", 0, skns_tilemap_layout, 0x000, 128 )
-	GFXDECODE_ENTRY( "gfx2", 0, skns_4bpptilemap_layout, 0x000, 128 )
-	GFXDECODE_ENTRY( "gfx3", 0, skns_4bpptilemap_layout, 0x000, 128 )
+	GFXDECODE_ENTRY( "gfx2", 0, gfx_16x16x8_raw, 0x000, 128 )
+	GFXDECODE_ENTRY( "gfx3", 0, gfx_16x16x8_raw, 0x000, 128 )
+	GFXDECODE_ENTRY( "gfx2", 0, gfx_16x16x4_packed_lsb, 0x000, 128 )
+	GFXDECODE_ENTRY( "gfx3", 0, gfx_16x16x4_packed_lsb, 0x000, 128 )
 GFXDECODE_END
 
 /***** MACHINE DRIVER *****/
 
-MACHINE_CONFIG_START(skns_state::skns)
-	MCFG_CPU_ADD("maincpu", SH2,28638000)
-	MCFG_CPU_PROGRAM_MAP(skns_map)
-	MCFG_TIMER_DRIVER_ADD_SCANLINE("scantimer", skns_state, irq, "screen", 0, 1)
+// XTALs : 28.636MHz, 33.3333MHz, 21.504MHz
+void skns_state::skns(machine_config &config)
+{
+	SH2(config, m_maincpu, XTAL(28'636'000));
+	m_maincpu->set_addrmap(AS_PROGRAM, &skns_state::skns_map);
 
-	MCFG_DEVICE_ADD("rtc", MSM6242, XTAL(32'768))
+	TIMER(config, "scantimer").configure_scanline(FUNC(skns_state::irq), "screen", 0, 1);
 
-	MCFG_NVRAM_ADD_1FILL("nvram")
+	MSM6242(config, "rtc", XTAL(32'768));
 
-	MCFG_TIMER_DRIVER_ADD_PERIODIC("int15_timer", skns_state, interrupt_callback, attotime::from_msec(2))
-	MCFG_TIMER_PARAM(15)
-	MCFG_TIMER_DRIVER_ADD_PERIODIC("int11_timer", skns_state, interrupt_callback, attotime::from_msec(8))
-	MCFG_TIMER_PARAM(11)
-	MCFG_TIMER_DRIVER_ADD_PERIODIC("int9_timer", skns_state, interrupt_callback, attotime::from_hz(28638000/1824))
-	MCFG_TIMER_PARAM(9)
+	NVRAM(config, "nvram", nvram_device::DEFAULT_ALL_1);
 
-	MCFG_SCREEN_ADD("screen", RASTER)
-	MCFG_SCREEN_VIDEO_ATTRIBUTES(VIDEO_ALWAYS_UPDATE)
-	MCFG_SCREEN_REFRESH_RATE(59.5971) // measured by Guru
-	MCFG_SCREEN_VBLANK_TIME(ATTOSECONDS_IN_USEC(0))
-	MCFG_SCREEN_SIZE(340,262)
-	MCFG_SCREEN_VISIBLE_AREA(0,319,0,239)
-	MCFG_SCREEN_UPDATE_DRIVER(skns_state, screen_update)
+	timer_device &int15_timer(TIMER(config, "int15_timer"));
+	int15_timer.configure_periodic(FUNC(skns_state::interrupt_callback), attotime::from_msec(2));
+	int15_timer.config_param(15);
+	timer_device &int11_timer(TIMER(config, "int11_timer"));
+	int11_timer.configure_periodic(FUNC(skns_state::interrupt_callback), attotime::from_msec(8));
+	int11_timer.config_param(11);
+	timer_device &int9_timer(TIMER(config, "int9_timer"));
+	int9_timer.configure_periodic(FUNC(skns_state::interrupt_callback), attotime::from_hz(XTAL(28'636'000)/1824));
+	int9_timer.config_param(9);
 
-	MCFG_PALETTE_ADD("palette", 32768)
-	MCFG_GFXDECODE_ADD("gfxdecode", "palette", skns_bg)
+	SCREEN(config, m_screen, SCREEN_TYPE_RASTER);
+	m_screen->set_video_attributes(VIDEO_ALWAYS_UPDATE);
+	m_screen->set_refresh_hz(59.5971); // measured by Guru
+	m_screen->set_vblank_time(ATTOSECONDS_IN_USEC(0));
+	m_screen->set_size(340,262);
+	m_screen->set_visarea(0,319,0,239);
+	m_screen->set_screen_update(FUNC(skns_state::screen_update));
+	m_screen->screen_vblank().set(FUNC(skns_state::screen_vblank));
 
-	MCFG_DEVICE_ADD("spritegen", SKNS_SPRITE, 0)
+	PALETTE(config, m_palette).set_entries(32768);
+	GFXDECODE(config, m_gfxdecode, m_palette, skns_bg);
 
+	SKNS_SPRITE(config, m_spritegen, 0);
 
 	/* sound hardware */
-	MCFG_SPEAKER_STANDARD_STEREO("lspeaker", "rspeaker")
+	SPEAKER(config, "lspeaker").front_left();
+	SPEAKER(config, "rspeaker").front_right();
 
-	MCFG_SOUND_ADD("ymz", YMZ280B, 33333333 / 2)
-	MCFG_SOUND_ROUTE(0, "lspeaker", 1.0)
-	MCFG_SOUND_ROUTE(1, "rspeaker", 1.0)
-MACHINE_CONFIG_END
+	ymz280b_device &ymz(YMZ280B(config, "ymz", XTAL(33'333'333) / 2));
+	ymz.add_route(0, "lspeaker", 1.0);
+	ymz.add_route(1, "rspeaker", 1.0);
+}
 
 MACHINE_RESET_MEMBER(skns_state,sknsa)
 {
@@ -855,34 +836,39 @@ MACHINE_RESET_MEMBER(skns_state,sknsk)
 }
 
 
-MACHINE_CONFIG_START(skns_state::sknsa)
+void skns_state::sknsa(machine_config &config)
+{
 	skns(config);
 	MCFG_MACHINE_RESET_OVERRIDE(skns_state,sknsa)
-MACHINE_CONFIG_END
+}
 
-MACHINE_CONFIG_START(skns_state::sknsj)
+void skns_state::sknsj(machine_config &config)
+{
 	skns(config);
 	MCFG_MACHINE_RESET_OVERRIDE(skns_state,sknsj)
-MACHINE_CONFIG_END
+}
 
-MACHINE_CONFIG_START(skns_state::sknsu)
+void skns_state::sknsu(machine_config &config)
+{
 	skns(config);
 	MCFG_MACHINE_RESET_OVERRIDE(skns_state,sknsu)
-MACHINE_CONFIG_END
+}
 
-MACHINE_CONFIG_START(skns_state::sknse)
+void skns_state::sknse(machine_config &config)
+{
 	skns(config);
 	MCFG_MACHINE_RESET_OVERRIDE(skns_state,sknse)
-MACHINE_CONFIG_END
+}
 
-MACHINE_CONFIG_START(skns_state::sknsk)
+void skns_state::sknsk(machine_config &config)
+{
 	skns(config);
 	MCFG_MACHINE_RESET_OVERRIDE(skns_state,sknsk)
-MACHINE_CONFIG_END
+}
 
 /***** IDLE SKIPPING *****/
 
-READ32_MEMBER(skns_state::gutsn_speedup_r)
+uint32_t skns_state::gutsn_speedup_r()
 {
 /*
     0402206A: MOV.L   @($8C,PC),R5
@@ -900,31 +886,31 @@ READ32_MEMBER(skns_state::gutsn_speedup_r)
 	return m_main_ram[0x0c780/4];
 }
 
-READ32_MEMBER(skns_state::cyvern_speedup_r)
+uint32_t skns_state::cyvern_speedup_r()
 {
 	if (m_maincpu->pc()==0x402ebd2) m_maincpu->spin_until_interrupt();
 	return m_main_ram[0x4d3c8/4];
 }
 
-READ32_MEMBER(skns_state::puzzloopj_speedup_r)
+uint32_t skns_state::puzzloopj_speedup_r()
 {
 	if (m_maincpu->pc()==0x401dca0) m_maincpu->spin_until_interrupt();
 	return m_main_ram[0x86714/4];
 }
 
-READ32_MEMBER(skns_state::puzzloopa_speedup_r)
+uint32_t skns_state::puzzloopa_speedup_r()
 {
 	if (m_maincpu->pc()==0x401d9d4) m_maincpu->spin_until_interrupt();
 	return m_main_ram[0x85bcc/4];
 }
 
-READ32_MEMBER(skns_state::puzzloopu_speedup_r)
+uint32_t skns_state::puzzloopu_speedup_r()
 {
 	if (m_maincpu->pc()==0x401dab0) m_maincpu->spin_until_interrupt();
 	return m_main_ram[0x85cec/4];
 }
 
-READ32_MEMBER(skns_state::puzzloope_speedup_r)
+uint32_t skns_state::puzzloope_speedup_r()
 {
 /*
     0401DA12: MOV.L   @($80,PC),R1
@@ -937,55 +923,55 @@ READ32_MEMBER(skns_state::puzzloope_speedup_r)
 	return m_main_ram[0x81d38/4];
 }
 
-READ32_MEMBER(skns_state::senknow_speedup_r)
+uint32_t skns_state::senknow_speedup_r()
 {
 	if (m_maincpu->pc()==0x4017dce) m_maincpu->spin_until_interrupt();
 	return m_main_ram[0x0000dc/4];
 }
 
-READ32_MEMBER(skns_state::teljan_speedup_r)
+uint32_t skns_state::teljan_speedup_r()
 {
 	if (m_maincpu->pc()==0x401ba32) m_maincpu->spin_until_interrupt();
 	return m_main_ram[0x002fb4/4];
 }
 
-READ32_MEMBER(skns_state::jjparads_speedup_r)
+uint32_t skns_state::jjparads_speedup_r()
 {
 	if (m_maincpu->pc()==0x4015e84) m_maincpu->spin_until_interrupt();
 	return m_main_ram[0x000994/4];
 }
 
-READ32_MEMBER(skns_state::jjparad2_speedup_r)
+uint32_t skns_state::jjparad2_speedup_r()
 {
 	if (m_maincpu->pc()==0x401620a) m_maincpu->spin_until_interrupt();
 	return m_main_ram[0x000984/4];
 }
 
-READ32_MEMBER(skns_state::ryouran_speedup_r)
+uint32_t skns_state::ryouran_speedup_r()
 {
 	if (m_maincpu->pc()==0x40182ce) m_maincpu->spin_until_interrupt();
 	return m_main_ram[0x000a14/4];
 }
 
-READ32_MEMBER(skns_state::galpans2_speedup_r)
+uint32_t skns_state::galpans2_speedup_r()
 {
 	if (m_maincpu->pc()==0x4049ae2) m_maincpu->spin_until_interrupt();
 	return m_main_ram[0x0fb6bc/4];
 }
 
-READ32_MEMBER(skns_state::panicstr_speedup_r)
+uint32_t skns_state::panicstr_speedup_r()
 {
 	if (m_maincpu->pc()==0x404e68a) m_maincpu->spin_until_interrupt();
 	return m_main_ram[0x0f19e4/4];
 }
 
-READ32_MEMBER(skns_state::sengekis_speedup_r)// 60006ee  600308e
+uint32_t skns_state::sengekis_speedup_r()// 60006ee  600308e
 {
 	if (m_maincpu->pc()==0x60006ec) m_maincpu->spin_until_interrupt();
 	return m_main_ram[0xb74bc/4];
 }
 
-READ32_MEMBER(skns_state::sengekij_speedup_r)// 60006ee  600308e
+uint32_t skns_state::sengekij_speedup_r()// 60006ee  600308e
 {
 	if (m_maincpu->pc()==0x60006ec) m_maincpu->spin_until_interrupt();
 	return m_main_ram[0xb7380/4];
@@ -1005,25 +991,25 @@ void skns_state::set_drc_pcflush(uint32_t addr)
 	m_maincpu->sh2drc_add_pcflush(addr);
 }
 
-DRIVER_INIT_MEMBER(skns_state,galpani4)   { machine().device<sknsspr_device>("spritegen")->skns_sprite_kludge(-5,-1); init_drc();  }
-DRIVER_INIT_MEMBER(skns_state,galpanis)   { machine().device<sknsspr_device>("spritegen")->skns_sprite_kludge(-5,-1); init_drc();  }
-DRIVER_INIT_MEMBER(skns_state,cyvern)     { machine().device<sknsspr_device>("spritegen")->skns_sprite_kludge(+0,+2); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x604d3c8, 0x604d3cb, read32_delegate(FUNC(skns_state::cyvern_speedup_r),this) );  set_drc_pcflush(0x402ebd2);  }
-DRIVER_INIT_MEMBER(skns_state,galpans2)   { machine().device<sknsspr_device>("spritegen")->skns_sprite_kludge(-1,-1); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x60fb6bc, 0x60fb6bf, read32_delegate(FUNC(skns_state::galpans2_speedup_r),this) ); set_drc_pcflush(0x4049ae2); }
-DRIVER_INIT_MEMBER(skns_state,gutsn)      { machine().device<sknsspr_device>("spritegen")->skns_sprite_kludge(+0,+0); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x600c780, 0x600c783, read32_delegate(FUNC(skns_state::gutsn_speedup_r),this) ); set_drc_pcflush(0x402206e); }
-DRIVER_INIT_MEMBER(skns_state,panicstr)   { machine().device<sknsspr_device>("spritegen")->skns_sprite_kludge(-1,-1); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x60f19e4, 0x60f19e7, read32_delegate(FUNC(skns_state::panicstr_speedup_r),this) ); set_drc_pcflush(0x404e68a);  }
-DRIVER_INIT_MEMBER(skns_state,senknow)    { machine().device<sknsspr_device>("spritegen")->skns_sprite_kludge(+1,+1); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x60000dc, 0x60000df, read32_delegate(FUNC(skns_state::senknow_speedup_r),this) ); set_drc_pcflush(0x4017dce);  }
-DRIVER_INIT_MEMBER(skns_state,puzzloope)  { machine().device<sknsspr_device>("spritegen")->skns_sprite_kludge(-9,-1); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x6081d38, 0x6081d3b, read32_delegate(FUNC(skns_state::puzzloope_speedup_r),this) ); set_drc_pcflush(0x401da14); }
-DRIVER_INIT_MEMBER(skns_state,puzzloopj)  { machine().device<sknsspr_device>("spritegen")->skns_sprite_kludge(-9,-1); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x6086714, 0x6086717, read32_delegate(FUNC(skns_state::puzzloopj_speedup_r),this) ); set_drc_pcflush(0x401dca0); }
-DRIVER_INIT_MEMBER(skns_state,puzzloopa)  { machine().device<sknsspr_device>("spritegen")->skns_sprite_kludge(-9,-1); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x6085bcc, 0x6085bcf, read32_delegate(FUNC(skns_state::puzzloopa_speedup_r),this) ); set_drc_pcflush(0x401d9d4); }
-DRIVER_INIT_MEMBER(skns_state,puzzloopu)  { machine().device<sknsspr_device>("spritegen")->skns_sprite_kludge(-9,-1); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x6085cec, 0x6085cef, read32_delegate(FUNC(skns_state::puzzloopu_speedup_r),this) ); set_drc_pcflush(0x401dab0); }
-DRIVER_INIT_MEMBER(skns_state,jjparads)   { machine().device<sknsspr_device>("spritegen")->skns_sprite_kludge(+5,+1); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x6000994, 0x6000997, read32_delegate(FUNC(skns_state::jjparads_speedup_r),this) ); set_drc_pcflush(0x4015e84); }
-DRIVER_INIT_MEMBER(skns_state,jjparad2)   { machine().device<sknsspr_device>("spritegen")->skns_sprite_kludge(+5,+1); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x6000984, 0x6000987, read32_delegate(FUNC(skns_state::jjparad2_speedup_r),this) ); set_drc_pcflush(0x401620a); }
-DRIVER_INIT_MEMBER(skns_state,ryouran)    { machine().device<sknsspr_device>("spritegen")->skns_sprite_kludge(+5,+1); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x6000a14, 0x6000a17, read32_delegate(FUNC(skns_state::ryouran_speedup_r),this) );  set_drc_pcflush(0x40182ce); }
-DRIVER_INIT_MEMBER(skns_state,teljan)     { machine().device<sknsspr_device>("spritegen")->skns_sprite_kludge(+5,+1); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x6002fb4, 0x6002fb7, read32_delegate(FUNC(skns_state::teljan_speedup_r),this) ); set_drc_pcflush(0x401ba32); }
-DRIVER_INIT_MEMBER(skns_state,sengekis)   { machine().device<sknsspr_device>("spritegen")->skns_sprite_kludge(-192,-272); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x60b74bc, 0x60b74bf, read32_delegate(FUNC(skns_state::sengekis_speedup_r),this) ); set_drc_pcflush(0x60006ec); }
-DRIVER_INIT_MEMBER(skns_state,sengekij)   { machine().device<sknsspr_device>("spritegen")->skns_sprite_kludge(-192,-272); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x60b7380, 0x60b7383, read32_delegate(FUNC(skns_state::sengekij_speedup_r),this) ); set_drc_pcflush(0x60006ec); }
-DRIVER_INIT_MEMBER(skns_state,sarukani)   { machine().device<sknsspr_device>("spritegen")->skns_sprite_kludge(-1,-1); init_drc(); set_drc_pcflush(0x4013b42); } // Speedup is in io_w()
-DRIVER_INIT_MEMBER(skns_state,galpans3)   { machine().device<sknsspr_device>("spritegen")->skns_sprite_kludge(-1,-1); init_drc();  }
+void skns_state::init_galpani4()   { m_spritegen->skns_sprite_kludge(-5,-1); init_drc();  }
+void skns_state::init_galpanis()   { m_spritegen->skns_sprite_kludge(-5,-1); init_drc();  }
+void skns_state::init_cyvern()     { m_spritegen->skns_sprite_kludge(+0,+2); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x604d3c8, 0x604d3cb, read32smo_delegate(*this, FUNC(skns_state::cyvern_speedup_r)) );  set_drc_pcflush(0x402ebd2);  }
+void skns_state::init_galpans2()   { m_spritegen->skns_sprite_kludge(-1,-1); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x60fb6bc, 0x60fb6bf, read32smo_delegate(*this, FUNC(skns_state::galpans2_speedup_r)) ); set_drc_pcflush(0x4049ae2); }
+void skns_state::init_gutsn()      { m_spritegen->skns_sprite_kludge(+0,+0); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x600c780, 0x600c783, read32smo_delegate(*this, FUNC(skns_state::gutsn_speedup_r)) ); set_drc_pcflush(0x402206e); }
+void skns_state::init_panicstr()   { m_spritegen->skns_sprite_kludge(-1,-1); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x60f19e4, 0x60f19e7, read32smo_delegate(*this, FUNC(skns_state::panicstr_speedup_r)) ); set_drc_pcflush(0x404e68a);  }
+void skns_state::init_senknow()    { m_spritegen->skns_sprite_kludge(+1,+1); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x60000dc, 0x60000df, read32smo_delegate(*this, FUNC(skns_state::senknow_speedup_r)) ); set_drc_pcflush(0x4017dce);  }
+void skns_state::init_puzzloope()  { m_spritegen->skns_sprite_kludge(-9,-1); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x6081d38, 0x6081d3b, read32smo_delegate(*this, FUNC(skns_state::puzzloope_speedup_r)) ); set_drc_pcflush(0x401da14); }
+void skns_state::init_puzzloopj()  { m_spritegen->skns_sprite_kludge(-9,-1); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x6086714, 0x6086717, read32smo_delegate(*this, FUNC(skns_state::puzzloopj_speedup_r)) ); set_drc_pcflush(0x401dca0); }
+void skns_state::init_puzzloopa()  { m_spritegen->skns_sprite_kludge(-9,-1); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x6085bcc, 0x6085bcf, read32smo_delegate(*this, FUNC(skns_state::puzzloopa_speedup_r)) ); set_drc_pcflush(0x401d9d4); }
+void skns_state::init_puzzloopu()  { m_spritegen->skns_sprite_kludge(-9,-1); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x6085cec, 0x6085cef, read32smo_delegate(*this, FUNC(skns_state::puzzloopu_speedup_r)) ); set_drc_pcflush(0x401dab0); }
+void skns_state::init_jjparads()   { m_spritegen->skns_sprite_kludge(+5,+1); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x6000994, 0x6000997, read32smo_delegate(*this, FUNC(skns_state::jjparads_speedup_r)) ); set_drc_pcflush(0x4015e84); }
+void skns_state::init_jjparad2()   { m_spritegen->skns_sprite_kludge(+5,+1); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x6000984, 0x6000987, read32smo_delegate(*this, FUNC(skns_state::jjparad2_speedup_r)) ); set_drc_pcflush(0x401620a); }
+void skns_state::init_ryouran()    { m_spritegen->skns_sprite_kludge(+5,+1); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x6000a14, 0x6000a17, read32smo_delegate(*this, FUNC(skns_state::ryouran_speedup_r)) );  set_drc_pcflush(0x40182ce); }
+void skns_state::init_teljan()     { m_spritegen->skns_sprite_kludge(+5,+1); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x6002fb4, 0x6002fb7, read32smo_delegate(*this, FUNC(skns_state::teljan_speedup_r)) ); set_drc_pcflush(0x401ba32); }
+void skns_state::init_sengekis()   { m_spritegen->skns_sprite_kludge(-192,-272); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x60b74bc, 0x60b74bf, read32smo_delegate(*this, FUNC(skns_state::sengekis_speedup_r)) ); set_drc_pcflush(0x60006ec); }
+void skns_state::init_sengekij()   { m_spritegen->skns_sprite_kludge(-192,-272); init_drc();m_maincpu->space(AS_PROGRAM).install_read_handler(0x60b7380, 0x60b7383, read32smo_delegate(*this, FUNC(skns_state::sengekij_speedup_r)) ); set_drc_pcflush(0x60006ec); }
+void skns_state::init_sarukani()   { m_spritegen->skns_sprite_kludge(-1,-1); init_drc(); set_drc_pcflush(0x4013b42); } // Speedup is in io_w()
+void skns_state::init_galpans3()   { m_spritegen->skns_sprite_kludge(-1,-1); init_drc();  }
 
 
 
@@ -1032,9 +1018,9 @@ DRIVER_INIT_MEMBER(skns_state,galpans3)   { machine().device<sknsspr_device>("sp
 // maybe we should treat each motherboard region as a separate parent / root?
 
 #define ROM_LOAD_BIOS(bios,name,offset,length,hash) \
-		ROMX_LOAD(name, offset, length, hash, ROM_BIOS(bios+1)) /* Note '+1' */
+		ROMX_LOAD(name, offset, length, hash, ROM_BIOS(bios))
 
- /* NOTE: The Euro BIOS rom has been found labeled SKNSE1 and SKNSE2 but the data is the same */
+ /* NOTE: The Euro BIOS ROM has been found labeled SKNSE1 and SKNSE2 but the data is the same */
 #define SKNS_BIOS \
 	ROM_REGION( 0x0100000, "maincpu", 0 ) \
 	ROM_SYSTEM_BIOS( 0, "japan", "Japan" ) \
@@ -1138,7 +1124,35 @@ ROM_START( cyvernj )
 	ROM_LOAD( "cv300-00.u4", 0x000000, 0x400000, CRC(fbeda465) SHA1(4d5066a22f4589b6b7f85b3e77c348d900ac4bdd) )
 ROM_END
 
-ROM_START( galpani4 )
+ROM_START( galpani4 ) // only main CPU and plds dumps were provided
+	SKNS_EUROPE
+
+	ROM_REGION32_BE( 0x200000, "user1", 0 ) /* SH-2 Code mapped at 0x04000000 */
+	ROM_LOAD16_BYTE( "gp4-000-e0.u10", 0x000000, 0x080000, CRC(7464cc28) SHA1(4ea6185b62d3e25efdaafb91397b51bc8f12fdee) ) // Hitachi HN27C4001G-10
+	ROM_LOAD16_BYTE( "gp4-001-e0.u8",  0x000001, 0x080000, CRC(8d162069) SHA1(1bd0181a9c9f37c8e8c9d6f75f045d76dffcd903) ) // Hitachi HN27C4001G-10
+
+	ROM_REGION( 0x400000, "spritegen", 0 )
+	ROM_LOAD( "gp4-100-00.u24", 0x000000, 0x200000, CRC(1df61f01) SHA1(a9e95bbb3013e8f2fd01243b1b392ff07b4f7d02) )
+	ROM_LOAD( "gp4-101-00.u20", 0x200000, 0x100000, CRC(8e2c9349) SHA1(a58fa9bcc9684ed4558e3395d592b64a1978a902) )
+
+	ROM_REGION( 0x400000, "gfx2", 0 )
+	ROM_LOAD( "gp4-200-00.u16", 0x000000, 0x200000, CRC(f0781376) SHA1(aeab9553a9af922524e528eb2d019cf36b6e2094) )
+	ROM_LOAD( "gp4-201-00.u18", 0x200000, 0x200000, CRC(10c4b183) SHA1(80e05f3932495ad4fc9bf928fa66e6d2931bbb06) )
+
+	ROM_REGION( 0x800000, "gfx3", ROMREGION_ERASE00 ) /* Tiles Plane B */
+	/* First 0x040000 bytes (0x03ff Tiles) are RAM Based Tiles */
+	/* 0x040000 - 0x3fffff empty? */
+
+	ROM_REGION( 0x400000, "ymz", 0 ) /* Samples */
+	ROM_LOAD( "gp4-300-00.u4", 0x000000, 0x200000, CRC(8374663a) SHA1(095512564f4de25dc3752d9fbd254b9dabd16d1b) ) /* Doesn't seem to use these samples at all */
+	ROM_LOAD( "gp4-301-00.u7", 0x200000, 0x200000, NO_DUMP ) /* Different then GP4-301-01 - Changed some samples when compared to U4 ROM */
+
+	ROM_REGION( 0x400, "plds", 0 )
+	ROM_LOAD( "skns-r09.u9",  0x000, 0x117, CRC(b02058d9) SHA1(77d07e0f329fb1969aa4543cd124e36ad34b07ba) ) // Atmel ATF16V8B
+	ROM_LOAD( "skns-r11.u11", 0x200, 0x117, CRC(a9f05af4) SHA1(018684c1f9f7c2e1c86f0cb2db2ec7fb02e35cd8) ) // Atmel ATF16V8B
+ROM_END
+
+ROM_START( galpani4j )
 	SKNS_JAPAN
 
 	ROM_REGION32_BE( 0x200000, "user1", 0 ) /* SH-2 Code mapped at 0x04000000 */
@@ -1161,7 +1175,7 @@ ROM_START( galpani4 )
 	ROM_LOAD( "gp4-300-00.u4", 0x000000, 0x200000, CRC(8374663a) SHA1(095512564f4de25dc3752d9fbd254b9dabd16d1b) )
 ROM_END
 
-ROM_START( galpani4k ) /* ROM-BOARD NEP-16 part number GP04K00372 with extra sound sample rom at U7 */
+ROM_START( galpani4k ) /* ROM-BOARD NEP-16 part number GP04K00372 with extra sound sample ROM at U7 */
 	SKNS_KOREA
 
 	ROM_REGION32_BE( 0x200000, "user1", 0 ) /* SH-2 Code mapped at 0x04000000 */
@@ -1182,7 +1196,7 @@ ROM_START( galpani4k ) /* ROM-BOARD NEP-16 part number GP04K00372 with extra sou
 
 	ROM_REGION( 0x400000, "ymz", 0 ) /* Samples */
 	ROM_LOAD( "gp4-300-00.u4", 0x000000, 0x200000, CRC(8374663a) SHA1(095512564f4de25dc3752d9fbd254b9dabd16d1b) ) /* Doesn't seem to use these samples at all */
-	ROM_LOAD( "gp4-301-01.u7", 0x200000, 0x200000, CRC(886ef77f) SHA1(047d5fecf2034339c69b2cb605b623a814a18f0d) ) /* Changed some samples when compared to U4 rom  */
+	ROM_LOAD( "gp4-301-01.u7", 0x200000, 0x200000, CRC(886ef77f) SHA1(047d5fecf2034339c69b2cb605b623a814a18f0d) ) /* Changed some samples when compared to U4 ROM  */
 ROM_END
 
 ROM_START( galpanidx )
@@ -1206,7 +1220,7 @@ ROM_START( galpanidx )
 
 	ROM_REGION( 0x400000, "ymz", 0 ) /* Samples */
 	ROM_LOAD( "gp4-300-00.u4", 0x000000, 0x200000, CRC(8374663a) SHA1(095512564f4de25dc3752d9fbd254b9dabd16d1b) ) /* Doesn't seem to use these samples at all */
-	ROM_LOAD( "gp4-301-01.u7", 0x200000, 0x200000, CRC(886ef77f) SHA1(047d5fecf2034339c69b2cb605b623a814a18f0d) ) /* Changed some samples when compared to U4 rom  */
+	ROM_LOAD( "gp4-301-01.u7", 0x200000, 0x200000, CRC(886ef77f) SHA1(047d5fecf2034339c69b2cb605b623a814a18f0d) ) /* Changed some samples when compared to U4 ROM  */
 ROM_END
 
 ROM_START( galpanis )
@@ -1217,44 +1231,44 @@ ROM_START( galpanis )
 	ROM_LOAD16_BYTE( "gps-001-e1.u8",  0x000001, 0x100000, CRC(ded57bd0) SHA1(4c0122f0521829d4d83b6b1c403f7e6470f14951) )
 
 	ROM_REGION( 0x1000000, "spritegen", 0 )
-	ROM_LOAD( "gps10000.u24", 0x000000, 0x400000, CRC(a1a7acf2) SHA1(52c86ae907f0c0236808c19f652955b09e90ec5a) )
-	ROM_LOAD( "gps10100.u20", 0x400000, 0x400000, CRC(49f764b6) SHA1(9f4289858c3dac625ef623cc381a47b45aa5d8e2) )
-	ROM_LOAD( "gps10200.u17", 0x800000, 0x400000, CRC(51980272) SHA1(6c0706d913b33995579aaf0688c4bf26d6d35a78) )
+	ROM_LOAD( "gps-100-00.u24", 0x000000, 0x400000, CRC(a1a7acf2) SHA1(52c86ae907f0c0236808c19f652955b09e90ec5a) )
+	ROM_LOAD( "gps-101-00.u20", 0x400000, 0x400000, CRC(49f764b6) SHA1(9f4289858c3dac625ef623cc381a47b45aa5d8e2) )
+	ROM_LOAD( "gps-102-00.u17", 0x800000, 0x400000, CRC(51980272) SHA1(6c0706d913b33995579aaf0688c4bf26d6d35a78) )
 
 	ROM_REGION( 0x800000, "gfx2", 0 )
-	ROM_LOAD( "gps20000.u16", 0x000000, 0x400000, CRC(c146a09e) SHA1(5af5a7b9d9a55ec7aba3fd85a3a0211b92b1b84f) )
-	ROM_LOAD( "gps20100.u13", 0x400000, 0x400000, CRC(9dfa2dc6) SHA1(a058c42fd76c23c0e5c8c11f5617fd29e056be7d) )
+	ROM_LOAD( "gps-200-00.u16", 0x000000, 0x400000, CRC(c146a09e) SHA1(5af5a7b9d9a55ec7aba3fd85a3a0211b92b1b84f) )
+	ROM_LOAD( "gps-201-00.u13", 0x400000, 0x400000, CRC(9dfa2dc6) SHA1(a058c42fd76c23c0e5c8c11f5617fd29e056be7d) )
 
 	ROM_REGION( 0x800000, "gfx3", ROMREGION_ERASE00 ) /* Tiles Plane B */
 	/* First 0x040000 bytes (0x03ff Tiles) are RAM Based Tiles */
 	/* 0x040000 - 0x3fffff empty? */
 
 	ROM_REGION( 0x400000, "ymz", 0 ) /* Samples */
-	ROM_LOAD( "gps30000.u4", 0x000000, 0x400000, CRC(9e4da8e3) SHA1(6506d9300a442883357003a05fd2c78d364c35bb) )
+	ROM_LOAD( "gps-300-00.u4", 0x000000, 0x400000, CRC(9e4da8e3) SHA1(6506d9300a442883357003a05fd2c78d364c35bb) )
 ROM_END
 
 ROM_START( galpanise )
 	SKNS_EUROPE
 
 	ROM_REGION32_BE( 0x200000, "user1", 0 ) /* SH-2 Code mapped at 0x04000000 */
-	ROM_LOAD16_BYTE( "u10", 0x000000, 0x100000, CRC(e78e1623) SHA1(f68346b65d2613c8515894d9a239fcbb0b5cb52d) ) /* MASK rom with no labels */
-	ROM_LOAD16_BYTE( "u8",  0x000001, 0x100000, CRC(098eff7c) SHA1(3cac22cbb11905a46afaa62c0470624b3b554fc0) ) /* MASK rom with no labels */
+	ROM_LOAD16_BYTE( "u10", 0x000000, 0x100000, CRC(e78e1623) SHA1(f68346b65d2613c8515894d9a239fcbb0b5cb52d) ) /* mask ROM with no labels */
+	ROM_LOAD16_BYTE( "u8",  0x000001, 0x100000, CRC(098eff7c) SHA1(3cac22cbb11905a46afaa62c0470624b3b554fc0) ) /* mask ROM with no labels */
 
 	ROM_REGION( 0x1000000, "spritegen", 0 )
-	ROM_LOAD( "gps10000.u24", 0x000000, 0x400000, CRC(a1a7acf2) SHA1(52c86ae907f0c0236808c19f652955b09e90ec5a) )
-	ROM_LOAD( "gps10100.u20", 0x400000, 0x400000, CRC(49f764b6) SHA1(9f4289858c3dac625ef623cc381a47b45aa5d8e2) )
-	ROM_LOAD( "gps10200.u17", 0x800000, 0x400000, CRC(51980272) SHA1(6c0706d913b33995579aaf0688c4bf26d6d35a78) )
+	ROM_LOAD( "gps-100-00.u24", 0x000000, 0x400000, CRC(a1a7acf2) SHA1(52c86ae907f0c0236808c19f652955b09e90ec5a) )
+	ROM_LOAD( "gps-101-00.u20", 0x400000, 0x400000, CRC(49f764b6) SHA1(9f4289858c3dac625ef623cc381a47b45aa5d8e2) )
+	ROM_LOAD( "gps-102-00.u17", 0x800000, 0x400000, CRC(51980272) SHA1(6c0706d913b33995579aaf0688c4bf26d6d35a78) )
 
 	ROM_REGION( 0x800000, "gfx2", 0 )
-	ROM_LOAD( "gps20000.u16", 0x000000, 0x400000, CRC(c146a09e) SHA1(5af5a7b9d9a55ec7aba3fd85a3a0211b92b1b84f) )
-	ROM_LOAD( "gps20100.u13", 0x400000, 0x400000, CRC(9dfa2dc6) SHA1(a058c42fd76c23c0e5c8c11f5617fd29e056be7d) )
+	ROM_LOAD( "gps-200-00.u16", 0x000000, 0x400000, CRC(c146a09e) SHA1(5af5a7b9d9a55ec7aba3fd85a3a0211b92b1b84f) )
+	ROM_LOAD( "gps-201-00.u13", 0x400000, 0x400000, CRC(9dfa2dc6) SHA1(a058c42fd76c23c0e5c8c11f5617fd29e056be7d) )
 
 	ROM_REGION( 0x800000, "gfx3", ROMREGION_ERASE00 ) /* Tiles Plane B */
 	/* First 0x040000 bytes (0x03ff Tiles) are RAM Based Tiles */
 	/* 0x040000 - 0x3fffff empty? */
 
 	ROM_REGION( 0x400000, "ymz", 0 ) /* Samples */
-	ROM_LOAD( "gps30000.u4", 0x000000, 0x400000, CRC(9e4da8e3) SHA1(6506d9300a442883357003a05fd2c78d364c35bb) )
+	ROM_LOAD( "gps-300-00.u4", 0x000000, 0x400000, CRC(9e4da8e3) SHA1(6506d9300a442883357003a05fd2c78d364c35bb) )
 ROM_END
 
 ROM_START( galpanisj )
@@ -1265,20 +1279,44 @@ ROM_START( galpanisj )
 	ROM_LOAD16_BYTE( "gps-001-j1.u8",  0x000001, 0x100000, CRC(e764177a) SHA1(3a1333eb1022ed1a275b9c3d44b5f4ab81618fb6) )
 
 	ROM_REGION( 0x1000000, "spritegen", 0 )
-	ROM_LOAD( "gps10000.u24", 0x000000, 0x400000, CRC(a1a7acf2) SHA1(52c86ae907f0c0236808c19f652955b09e90ec5a) )
-	ROM_LOAD( "gps10100.u20", 0x400000, 0x400000, CRC(49f764b6) SHA1(9f4289858c3dac625ef623cc381a47b45aa5d8e2) )
-	ROM_LOAD( "gps10200.u17", 0x800000, 0x400000, CRC(51980272) SHA1(6c0706d913b33995579aaf0688c4bf26d6d35a78) )
+	ROM_LOAD( "gps-100-00.u24", 0x000000, 0x400000, CRC(a1a7acf2) SHA1(52c86ae907f0c0236808c19f652955b09e90ec5a) )
+	ROM_LOAD( "gps-101-00.u20", 0x400000, 0x400000, CRC(49f764b6) SHA1(9f4289858c3dac625ef623cc381a47b45aa5d8e2) )
+	ROM_LOAD( "gps-102-00.u17", 0x800000, 0x400000, CRC(51980272) SHA1(6c0706d913b33995579aaf0688c4bf26d6d35a78) )
 
 	ROM_REGION( 0x800000, "gfx2", 0 )
-	ROM_LOAD( "gps20000.u16", 0x000000, 0x400000, CRC(c146a09e) SHA1(5af5a7b9d9a55ec7aba3fd85a3a0211b92b1b84f) )
-	ROM_LOAD( "gps20100.u13", 0x400000, 0x400000, CRC(9dfa2dc6) SHA1(a058c42fd76c23c0e5c8c11f5617fd29e056be7d) )
+	ROM_LOAD( "gps-200-00.u16", 0x000000, 0x400000, CRC(c146a09e) SHA1(5af5a7b9d9a55ec7aba3fd85a3a0211b92b1b84f) )
+	ROM_LOAD( "gps-201-00.u13", 0x400000, 0x400000, CRC(9dfa2dc6) SHA1(a058c42fd76c23c0e5c8c11f5617fd29e056be7d) )
 
 	ROM_REGION( 0x800000, "gfx3", ROMREGION_ERASE00 ) /* Tiles Plane B */
 	/* First 0x040000 bytes (0x03ff Tiles) are RAM Based Tiles */
 	/* 0x040000 - 0x3fffff empty? */
 
 	ROM_REGION( 0x400000, "ymz", 0 ) /* Samples */
-	ROM_LOAD( "gps30000.u4", 0x000000, 0x400000, CRC(9e4da8e3) SHA1(6506d9300a442883357003a05fd2c78d364c35bb) )
+	ROM_LOAD( "gps-300-00.u4", 0x000000, 0x400000, CRC(9e4da8e3) SHA1(6506d9300a442883357003a05fd2c78d364c35bb) )
+ROM_END
+
+ROM_START( galpanisa )
+	SKNS_ASIA
+
+	ROM_REGION32_BE( 0x200000, "user1", 0 ) /* SH-2 Code mapped at 0x04000000 */
+	ROM_LOAD16_BYTE( "gps-000-a0_9abc.u10", 0x000000, 0x100000, CRC(4e24b799) SHA1(614f4eb6a7b0ab03ea6ada28a670ed0759b3f4f9) ) /* hand written labels with checksum */
+	ROM_LOAD16_BYTE( "gps-001-a0_bd64.u8",  0x000001, 0x100000, CRC(aa4db8af) SHA1(10cc15fa065b6a2dcaf8c7d701c5ae7c18e4e863) ) /* hand written labels with checksum */
+
+	ROM_REGION( 0x1000000, "spritegen", 0 )
+	ROM_LOAD( "gps-100-00.u24", 0x000000, 0x400000, CRC(a1a7acf2) SHA1(52c86ae907f0c0236808c19f652955b09e90ec5a) )
+	ROM_LOAD( "gps-101-00.u20", 0x400000, 0x400000, CRC(49f764b6) SHA1(9f4289858c3dac625ef623cc381a47b45aa5d8e2) )
+	ROM_LOAD( "gps-102-00.u17", 0x800000, 0x400000, CRC(51980272) SHA1(6c0706d913b33995579aaf0688c4bf26d6d35a78) )
+
+	ROM_REGION( 0x800000, "gfx2", 0 )
+	ROM_LOAD( "gps-200-00.u16", 0x000000, 0x400000, CRC(c146a09e) SHA1(5af5a7b9d9a55ec7aba3fd85a3a0211b92b1b84f) )
+	ROM_LOAD( "gps-201-00.u13", 0x400000, 0x400000, CRC(9dfa2dc6) SHA1(a058c42fd76c23c0e5c8c11f5617fd29e056be7d) )
+
+	ROM_REGION( 0x800000, "gfx3", ROMREGION_ERASE00 ) /* Tiles Plane B */
+	/* First 0x040000 bytes (0x03ff Tiles) are RAM Based Tiles */
+	/* 0x040000 - 0x3fffff empty? */
+
+	ROM_REGION( 0x400000, "ymz", 0 ) /* Samples */
+	ROM_LOAD( "gps-300-00.u4", 0x000000, 0x400000, CRC(9e4da8e3) SHA1(6506d9300a442883357003a05fd2c78d364c35bb) )
 ROM_END
 
 ROM_START( galpanisk )
@@ -1289,28 +1327,28 @@ ROM_START( galpanisk )
 	ROM_LOAD16_BYTE( "gps-001-k1.u8",  0x000001, 0x100000, CRC(354e601d) SHA1(4d176f2337a3b0b63548b2e542f9fa87d0a1ef7b) )
 
 	ROM_REGION( 0x1000000, "spritegen", 0 )
-	ROM_LOAD( "gps10000.u24", 0x000000, 0x400000, CRC(a1a7acf2) SHA1(52c86ae907f0c0236808c19f652955b09e90ec5a) )
-	ROM_LOAD( "gps10100.u20", 0x400000, 0x400000, CRC(49f764b6) SHA1(9f4289858c3dac625ef623cc381a47b45aa5d8e2) )
-	ROM_LOAD( "gps10200.u17", 0x800000, 0x400000, CRC(51980272) SHA1(6c0706d913b33995579aaf0688c4bf26d6d35a78) )
+	ROM_LOAD( "gps-100-00.u24", 0x000000, 0x400000, CRC(a1a7acf2) SHA1(52c86ae907f0c0236808c19f652955b09e90ec5a) )
+	ROM_LOAD( "gps-101-00.u20", 0x400000, 0x400000, CRC(49f764b6) SHA1(9f4289858c3dac625ef623cc381a47b45aa5d8e2) )
+	ROM_LOAD( "gps-102-00.u17", 0x800000, 0x400000, CRC(51980272) SHA1(6c0706d913b33995579aaf0688c4bf26d6d35a78) )
 
 	ROM_REGION( 0x800000, "gfx2", 0 )
-	ROM_LOAD( "gps20000.u16", 0x000000, 0x400000, CRC(c146a09e) SHA1(5af5a7b9d9a55ec7aba3fd85a3a0211b92b1b84f) )
-	ROM_LOAD( "gps20100.u13", 0x400000, 0x400000, CRC(9dfa2dc6) SHA1(a058c42fd76c23c0e5c8c11f5617fd29e056be7d) )
+	ROM_LOAD( "gps-200-00.u16", 0x000000, 0x400000, CRC(c146a09e) SHA1(5af5a7b9d9a55ec7aba3fd85a3a0211b92b1b84f) )
+	ROM_LOAD( "gps-201-00.u13", 0x400000, 0x400000, CRC(9dfa2dc6) SHA1(a058c42fd76c23c0e5c8c11f5617fd29e056be7d) )
 
 	ROM_REGION( 0x800000, "gfx3", ROMREGION_ERASE00 ) /* Tiles Plane B */
 	/* First 0x040000 bytes (0x03ff Tiles) are RAM Based Tiles */
 	/* 0x040000 - 0x3fffff empty? */
 
 	ROM_REGION( 0x400000, "ymz", 0 ) /* Samples */
-	ROM_LOAD( "gps30000.u4", 0x000000, 0x400000, CRC(9e4da8e3) SHA1(6506d9300a442883357003a05fd2c78d364c35bb) )
+	ROM_LOAD( "gps-300-00.u4", 0x000000, 0x400000, CRC(9e4da8e3) SHA1(6506d9300a442883357003a05fd2c78d364c35bb) )
 ROM_END
 
 ROM_START( galpans2 ) //only the 2 program ROMs were dumped, but mask ROMs are supposed to match.
 	SKNS_EUROPE
 
 	ROM_REGION32_BE( 0x200000, "user1", 0 ) /* SH-2 Code mapped at 0x04000000 */
-	ROM_LOAD16_BYTE( "GPS2E_U6__Ver.3.u6", 0x000000, 0x100000, CRC(72fff5d1) SHA1(57001e04c469281a82a2956c6bc33502d5a3b882) )
-	ROM_LOAD16_BYTE( "GPS2E_U4__Ver.3.u4", 0x000001, 0x100000, CRC(95061601) SHA1(f98f1af9877b097e97acc5a3844ef9c523a92843) )
+	ROM_LOAD16_BYTE( "gps2e_u6__ver.3.u6", 0x000000, 0x100000, CRC(72fff5d1) SHA1(57001e04c469281a82a2956c6bc33502d5a3b882) )
+	ROM_LOAD16_BYTE( "gps2e_u4__ver.3.u4", 0x000001, 0x100000, CRC(95061601) SHA1(f98f1af9877b097e97acc5a3844ef9c523a92843) )
 
 	ROM_REGION( 0x1000000, "spritegen", 0 )
 	ROM_LOAD( "gs210000.u21", 0x000000, 0x400000, CRC(294b2f14) SHA1(90cbd0acdaa2d89d208c28aae33ab57c03624089) )
@@ -1408,7 +1446,7 @@ ROM_START( galpansu )
 	ROM_LOAD16_BYTE( "su.u10", 0x000000, 0x100000, CRC(5ae66218) SHA1(c3f32603e1da945efb984ff99e1a30202e535773) )
 	ROM_LOAD16_BYTE( "su.u8",  0x000001, 0x100000, CRC(10977a03) SHA1(2ab95398d6b88d8819f368ee6104d7f8b485778d) )
 
-	/* the rest of the roms match Gals Panic S2, but are in different locations */
+	/* the rest of the ROMs match Gals Panic S2, but are in different locations */
 	ROM_REGION( 0x1000000, "spritegen", 0 )
 	ROM_LOAD( "24", 0x000000, 0x400000, CRC(294b2f14) SHA1(90cbd0acdaa2d89d208c28aae33ab57c03624089) )
 	ROM_LOAD( "20", 0x400000, 0x400000, CRC(f75c5a9a) SHA1(3919643cee6c88185a1aa3c58c5bc80599bf734e) )
@@ -1888,53 +1926,55 @@ ROM_END
 
 /***** GAME DRIVERS *****/
 
-GAME( 1996, skns,      0,        skns,  skns,     skns_state, 0,         ROT0,  "Kaneko", "Super Kaneko Nova System BIOS", MACHINE_IS_BIOS_ROOT )
+GAME( 1996, skns,      0,        skns,  skns,     skns_state, empty_init,     ROT0,  "Kaneko", "Super Kaneko Nova System BIOS", MACHINE_IS_BIOS_ROOT )
 
-GAME( 1996, galpani4,  skns,     sknsj, cyvern,   skns_state, galpani4,  ROT0,  "Kaneko", "Gals Panic 4 (Japan)", MACHINE_IMPERFECT_GRAPHICS )
-GAME( 1996, galpani4k, galpani4, sknsk, cyvern,   skns_state, galpani4,  ROT0,  "Kaneko", "Gals Panic 4 (Korea)", MACHINE_IMPERFECT_GRAPHICS )
-GAME( 2001, galpanidx, galpani4, sknsa, cyvern,   skns_state, galpani4,  ROT0,  "Kaneko", "Gals Panic DX (Asia)", MACHINE_IMPERFECT_GRAPHICS ) // copyright 2001, re-release for the Asian market?
+GAME( 1996, galpani4,  skns,     sknse, cyvern,   skns_state, init_galpani4,  ROT0,  "Kaneko", "Gals Panic 4 (Europe)", MACHINE_IMPERFECT_GRAPHICS | MACHINE_NO_SOUND ) // 2nd sound ROM wasn't dumped, it's different than GP4-301-01
+GAME( 1996, galpani4j, galpani4, sknsj, cyvern,   skns_state, init_galpani4,  ROT0,  "Kaneko", "Gals Panic 4 (Japan)",  MACHINE_IMPERFECT_GRAPHICS )
+GAME( 1996, galpani4k, galpani4, sknsk, cyvern,   skns_state, init_galpani4,  ROT0,  "Kaneko", "Gals Panic 4 (Korea)",  MACHINE_IMPERFECT_GRAPHICS )
+GAME( 2001, galpanidx, galpani4, sknsa, cyvern,   skns_state, init_galpani4,  ROT0,  "Kaneko", "Gals Panic DX (Asia)",  MACHINE_IMPERFECT_GRAPHICS ) // copyright 2001, re-release for the Asian market?
 // there is a Gals Panic 4 version with 'Gals Panic SU' title as well, seen for sale in Korea (different to the Gals Panic SU clone of galpans2)
 
-GAME( 1996, jjparads,  skns,     sknsj, skns_1p,  skns_state, jjparads,  ROT0,  "Electro Design", "Jan Jan Paradise", MACHINE_IMPERFECT_GRAPHICS )
+GAME( 1996, jjparads,  skns,     sknsj, skns_1p,  skns_state, init_jjparads,  ROT0,  "Electro Design", "Jan Jan Paradise", MACHINE_IMPERFECT_GRAPHICS )
 
-GAME( 1997, galpanis,  skns,     sknse, galpanis, skns_state, galpanis,  ROT0,  "Kaneko", "Gals Panic S - Extra Edition (Europe, set 1)", MACHINE_IMPERFECT_GRAPHICS )
-GAME( 1997, galpanise, galpanis, sknse, galpanis, skns_state, galpanis,  ROT0,  "Kaneko", "Gals Panic S - Extra Edition (Europe, set 2)", MACHINE_IMPERFECT_GRAPHICS )
-GAME( 1997, galpanisj, galpanis, sknsj, galpanis, skns_state, galpanis,  ROT0,  "Kaneko", "Gals Panic S - Extra Edition (Japan)", MACHINE_IMPERFECT_GRAPHICS )
-GAME( 1997, galpanisk, galpanis, sknsk, galpanis, skns_state, galpanis,  ROT0,  "Kaneko", "Gals Panic S - Extra Edition (Korea)", MACHINE_IMPERFECT_GRAPHICS )
+GAME( 1997, galpanis,  skns,     sknse, galpanis, skns_state, init_galpanis,  ROT0,  "Kaneko", "Gals Panic S - Extra Edition (Europe, set 1)", MACHINE_IMPERFECT_GRAPHICS )
+GAME( 1997, galpanise, galpanis, sknse, galpanis, skns_state, init_galpanis,  ROT0,  "Kaneko", "Gals Panic S - Extra Edition (Europe, set 2)", MACHINE_IMPERFECT_GRAPHICS )
+GAME( 1997, galpanisj, galpanis, sknsj, galpanis, skns_state, init_galpanis,  ROT0,  "Kaneko", "Gals Panic S - Extra Edition (Japan)", MACHINE_IMPERFECT_GRAPHICS )
+GAME( 1997, galpanisa, galpanis, sknsa, galpanis, skns_state, init_galpanis,  ROT0,  "Kaneko", "Gals Panic S - Extra Edition (Asia)", MACHINE_IMPERFECT_GRAPHICS )
+GAME( 1997, galpanisk, galpanis, sknsk, galpanis, skns_state, init_galpanis,  ROT0,  "Kaneko", "Gals Panic S - Extra Edition (Korea)", MACHINE_IMPERFECT_GRAPHICS )
 
-GAME( 1997, jjparad2,  skns,     sknsj, skns_1p,  skns_state, jjparad2,  ROT0,  "Electro Design", "Jan Jan Paradise 2", MACHINE_IMPERFECT_GRAPHICS )
+GAME( 1997, jjparad2,  skns,     sknsj, skns_1p,  skns_state, init_jjparad2,  ROT0,  "Electro Design", "Jan Jan Paradise 2", MACHINE_IMPERFECT_GRAPHICS )
 
-GAME( 1997, sengekis,  skns,     sknsa, skns,     skns_state, sengekis,  ROT90, "Kaneko / Warashi", "Sengeki Striker (Asia)", MACHINE_IMPERFECT_GRAPHICS )
-GAME( 1997, sengekisj, sengekis, sknsj, skns,     skns_state, sengekij,  ROT90, "Kaneko / Warashi", "Sengeki Striker (Japan)", MACHINE_IMPERFECT_GRAPHICS )
+GAME( 1997, sengekis,  skns,     sknsa, skns,     skns_state, init_sengekis,  ROT90, "Kaneko / Warashi", "Sengeki Striker (Asia)", MACHINE_IMPERFECT_GRAPHICS )
+GAME( 1997, sengekisj, sengekis, sknsj, skns,     skns_state, init_sengekij,  ROT90, "Kaneko / Warashi", "Sengeki Striker (Japan)", MACHINE_IMPERFECT_GRAPHICS )
 
-GAME( 1997, vblokbrk,  skns,     sknse, vblokbrk, skns_state, sarukani,  ROT0,  "Kaneko / Mediaworks", "VS Block Breaker (Europe)", MACHINE_IMPERFECT_GRAPHICS )
-GAME( 1997, vblokbrka, vblokbrk, sknsa, vblokbrk, skns_state, sarukani,  ROT0,  "Kaneko / Mediaworks", "VS Block Breaker (Asia)", MACHINE_IMPERFECT_GRAPHICS )
-GAME( 1997, sarukani,  vblokbrk, sknsj, vblokbrk, skns_state, sarukani,  ROT0,  "Kaneko / Mediaworks", "Saru-Kani-Hamu-Zou (Japan)", MACHINE_IMPERFECT_GRAPHICS )
+GAME( 1997, vblokbrk,  skns,     sknse, vblokbrk, skns_state, init_sarukani,  ROT0,  "Kaneko / Mediaworks", "VS Block Breaker (Europe)", MACHINE_IMPERFECT_GRAPHICS )
+GAME( 1997, vblokbrka, vblokbrk, sknsa, vblokbrk, skns_state, init_sarukani,  ROT0,  "Kaneko / Mediaworks", "VS Block Breaker (Asia)", MACHINE_IMPERFECT_GRAPHICS )
+GAME( 1997, sarukani,  vblokbrk, sknsj, vblokbrk, skns_state, init_sarukani,  ROT0,  "Kaneko / Mediaworks", "Saru-Kani-Hamu-Zou (Japan)", MACHINE_IMPERFECT_GRAPHICS )
 
-GAME( 1998, cyvern,    skns,     sknsu, cyvern,   skns_state, cyvern,    ROT90, "Kaneko", "Cyvern - The Dragon Weapons (US)", MACHINE_IMPERFECT_GRAPHICS )
-GAME( 1998, cyvernj,   cyvern,   sknsj, cyvern,   skns_state, cyvern,    ROT90, "Kaneko", "Cyvern - The Dragon Weapons (Japan)", MACHINE_IMPERFECT_GRAPHICS )
+GAME( 1998, cyvern,    skns,     sknsu, cyvern,   skns_state, init_cyvern,    ROT90, "Kaneko", "Cyvern - The Dragon Weapons (US)", MACHINE_IMPERFECT_GRAPHICS )
+GAME( 1998, cyvernj,   cyvern,   sknsj, cyvern,   skns_state, init_cyvern,    ROT90, "Kaneko", "Cyvern - The Dragon Weapons (Japan)", MACHINE_IMPERFECT_GRAPHICS )
 
-GAME( 1998, puzzloop,  skns,     sknse, puzzloop, skns_state, puzzloopu, ROT0,  "Mitchell", "Puzz Loop (Europe, v0.94)", MACHINE_IMPERFECT_GRAPHICS ) // Same speed up as US version
-GAME( 1998, puzzloope, puzzloop, sknse, puzzloop, skns_state, puzzloope, ROT0,  "Mitchell", "Puzz Loop (Europe, v0.93)", MACHINE_IMPERFECT_GRAPHICS )
-GAME( 1998, puzzloopj, puzzloop, sknsj, puzzloop, skns_state, puzzloopj, ROT0,  "Mitchell", "Puzz Loop (Japan)", MACHINE_IMPERFECT_GRAPHICS )
-GAME( 1998, puzzloopa, puzzloop, sknsa, puzzloop, skns_state, puzzloopa, ROT0,  "Mitchell", "Puzz Loop (Asia)", MACHINE_IMPERFECT_GRAPHICS )
-GAME( 1998, puzzloopk, puzzloop, sknsk, puzzloop, skns_state, puzzloopu, ROT0,  "Mitchell", "Puzz Loop (Korea)", MACHINE_IMPERFECT_GRAPHICS ) // Same speed up as US version
-GAME( 1998, puzzloopu, puzzloop, sknsu, puzzloop, skns_state, puzzloopu, ROT0,  "Mitchell", "Puzz Loop (USA)", MACHINE_IMPERFECT_GRAPHICS )
+GAME( 1998, puzzloop,  skns,     sknse, puzzloop, skns_state, init_puzzloopu, ROT0,  "Mitchell", "Puzz Loop (Europe, v0.94)", MACHINE_IMPERFECT_GRAPHICS ) // Same speed up as US version
+GAME( 1998, puzzloope, puzzloop, sknse, puzzloop, skns_state, init_puzzloope, ROT0,  "Mitchell", "Puzz Loop (Europe, v0.93)", MACHINE_IMPERFECT_GRAPHICS )
+GAME( 1998, puzzloopj, puzzloop, sknsj, puzzloop, skns_state, init_puzzloopj, ROT0,  "Mitchell", "Puzz Loop (Japan)", MACHINE_IMPERFECT_GRAPHICS )
+GAME( 1998, puzzloopa, puzzloop, sknsa, puzzloop, skns_state, init_puzzloopa, ROT0,  "Mitchell", "Puzz Loop (Asia)", MACHINE_IMPERFECT_GRAPHICS )
+GAME( 1998, puzzloopk, puzzloop, sknsk, puzzloop, skns_state, init_puzzloopu, ROT0,  "Mitchell", "Puzz Loop (Korea)", MACHINE_IMPERFECT_GRAPHICS ) // Same speed up as US version
+GAME( 1998, puzzloopu, puzzloop, sknsu, puzzloop, skns_state, init_puzzloopu, ROT0,  "Mitchell", "Puzz Loop (USA)", MACHINE_IMPERFECT_GRAPHICS )
 
-GAME( 1998, ryouran ,  skns,     sknsj, skns_1p,  skns_state, ryouran,   ROT0,  "Electro Design", "VS Mahjong Otome Ryouran (set 1)", MACHINE_IMPERFECT_GRAPHICS )
-GAME( 1998, ryourano,  ryouran,  sknsj, skns_1p,  skns_state, ryouran,   ROT0,  "Electro Design", "VS Mahjong Otome Ryouran (set 2)", MACHINE_IMPERFECT_GRAPHICS )
+GAME( 1998, ryouran ,  skns,     sknsj, skns_1p,  skns_state, init_ryouran,   ROT0,  "Electro Design", "VS Mahjong Otome Ryouran (set 1)", MACHINE_IMPERFECT_GRAPHICS )
+GAME( 1998, ryourano,  ryouran,  sknsj, skns_1p,  skns_state, init_ryouran,   ROT0,  "Electro Design", "VS Mahjong Otome Ryouran (set 2)", MACHINE_IMPERFECT_GRAPHICS )
 
-GAME( 1999, galpans2,  skns,     sknse, galpanis, skns_state, galpans2,  ROT0,  "Kaneko", "Gals Panic S2 (Europe)", MACHINE_IMPERFECT_GRAPHICS )
-GAME( 1999, galpans2j, galpans2, sknsj, galpanis, skns_state, galpans2,  ROT0,  "Kaneko", "Gals Panic S2 (Japan)", MACHINE_IMPERFECT_GRAPHICS )
-GAME( 1999, galpans2a, galpans2, sknsa, galpanis, skns_state, galpans2,  ROT0,  "Kaneko", "Gals Panic S2 (Asia)", MACHINE_IMPERFECT_GRAPHICS )
-GAME( 1999, galpansu,  galpans2, sknsk, galpanis, skns_state, galpans2,  ROT0,  "Kaneko", "Gals Panic SU (Korea)", MACHINE_IMPERFECT_GRAPHICS ) // official or hack?
+GAME( 1999, galpans2,  skns,     sknse, galpanis, skns_state, init_galpans2,  ROT0,  "Kaneko", "Gals Panic S2 (Europe)", MACHINE_IMPERFECT_GRAPHICS )
+GAME( 1999, galpans2j, galpans2, sknsj, galpanis, skns_state, init_galpans2,  ROT0,  "Kaneko", "Gals Panic S2 (Japan)", MACHINE_IMPERFECT_GRAPHICS )
+GAME( 1999, galpans2a, galpans2, sknsa, galpanis, skns_state, init_galpans2,  ROT0,  "Kaneko", "Gals Panic S2 (Asia)", MACHINE_IMPERFECT_GRAPHICS )
+GAME( 1999, galpansu,  galpans2, sknsk, galpanis, skns_state, init_galpans2,  ROT0,  "Kaneko", "Gals Panic SU (Korea)", MACHINE_IMPERFECT_GRAPHICS ) // official or hack?
 
-GAME( 1999, panicstr,  skns,     sknsj, galpanis, skns_state, panicstr,  ROT0,  "Kaneko", "Panic Street (Japan)", MACHINE_IMPERFECT_GRAPHICS )
+GAME( 1999, panicstr,  skns,     sknsj, galpanis, skns_state, init_panicstr,  ROT0,  "Kaneko", "Panic Street (Japan)", MACHINE_IMPERFECT_GRAPHICS )
 
-GAME( 1999, senknow ,  skns,     sknsj, skns,     skns_state, senknow,   ROT0,  "Kaneko / Kouyousha", "Sen-Know (Japan)", MACHINE_IMPERFECT_GRAPHICS )
+GAME( 1999, senknow ,  skns,     sknsj, skns,     skns_state, init_senknow,   ROT0,  "Kaneko / Kouyousha", "Sen-Know (Japan)", MACHINE_IMPERFECT_GRAPHICS )
 
-GAME( 1999, teljan  ,  skns,     sknsj, skns_1p,  skns_state, teljan,    ROT0,  "Electro Design", "Tel Jan", MACHINE_IMPERFECT_GRAPHICS )
+GAME( 1999, teljan  ,  skns,     sknsj, skns_1p,  skns_state, init_teljan,    ROT0,  "Electro Design", "Tel Jan", MACHINE_IMPERFECT_GRAPHICS )
 
-GAME( 2000, gutsn,     skns,     sknsj, skns,     skns_state, gutsn,     ROT0,  "Kaneko / Kouyousha", "Guts'n (Japan)", MACHINE_IMPERFECT_GRAPHICS )
+GAME( 2000, gutsn,     skns,     sknsj, skns,     skns_state, init_gutsn,     ROT0,  "Kaneko / Kouyousha", "Guts'n (Japan)", MACHINE_IMPERFECT_GRAPHICS )
 
-GAME( 2002, galpans3,  skns,     sknsj, galpanis, skns_state, galpans3,  ROT0,  "Kaneko", "Gals Panic S3 (Japan)", MACHINE_IMPERFECT_GRAPHICS )
+GAME( 2002, galpans3,  skns,     sknsj, galpanis, skns_state, init_galpans3,  ROT0,  "Kaneko", "Gals Panic S3 (Japan)", MACHINE_IMPERFECT_GRAPHICS )

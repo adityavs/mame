@@ -111,33 +111,6 @@ enum
 
 
 //**************************************************************************
-//  INTERFACE CONFIGURATION MACROS
-//**************************************************************************
-
-#define MCFG_PSX_DMA_CHANNEL_READ( cputag, channel, handler ) \
-	psxcpu_device::getcpu( *this, cputag )->subdevice<psxdma_device>("dma")->install_read_handler( channel, handler );
-
-#define MCFG_PSX_DMA_CHANNEL_WRITE( cputag, channel, handler ) \
-	psxcpu_device::getcpu( *this, cputag )->subdevice<psxdma_device>("dma")->install_write_handler( channel, handler );
-
-#define MCFG_PSX_GPU_READ_HANDLER(_devcb) \
-	devcb = &downcast<psxcpu_device &>(*device).set_gpu_read_handler(DEVCB_##_devcb);
-#define MCFG_PSX_GPU_WRITE_HANDLER(_devcb) \
-	devcb = &downcast<psxcpu_device &>(*device).set_gpu_write_handler(DEVCB_##_devcb);
-
-#define MCFG_PSX_SPU_READ_HANDLER(_devcb) \
-	devcb = &downcast<psxcpu_device &>(*device).set_spu_read_handler(DEVCB_##_devcb);
-#define MCFG_PSX_SPU_WRITE_HANDLER(_devcb) \
-	devcb = &downcast<psxcpu_device &>(*device).set_spu_write_handler(DEVCB_##_devcb);
-
-#define MCFG_PSX_CD_READ_HANDLER(_devcb) \
-	devcb = &downcast<psxcpu_device &>(*device).set_cd_read_handler(DEVCB_##_devcb);
-#define MCFG_PSX_CD_WRITE_HANDLER(_devcb) \
-	devcb = &downcast<psxcpu_device &>(*device).set_cd_write_handler(DEVCB_##_devcb);
-#define MCFG_PSX_DISABLE_ROM_BERR \
-	downcast<psxcpu_device *>(device)->set_disable_rom_berr(true);
-
-//**************************************************************************
 //  TYPE DEFINITIONS
 //**************************************************************************
 
@@ -147,45 +120,45 @@ class psxcpu_device : public cpu_device, psxcpu_disassembler::config
 {
 public:
 	// configuration helpers
-	template <class Object> devcb_base &set_gpu_read_handler(Object &&cb) { return m_gpu_read_handler.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_gpu_write_handler(Object &&cb) { return m_gpu_write_handler.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_spu_read_handler(Object &&cb) { return m_spu_read_handler.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_spu_write_handler(Object &&cb) { return m_spu_write_handler.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_cd_read_handler(Object &&cb) { return m_cd_read_handler.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_cd_write_handler(Object &&cb) { return m_cd_write_handler.set_callback(std::forward<Object>(cb)); }
+	auto gpu_read() { return m_gpu_read_handler.bind(); }
+	auto gpu_write() { return m_gpu_write_handler.bind(); }
+	auto spu_read() { return m_spu_read_handler.bind(); }
+	auto spu_write() { return m_spu_write_handler.bind(); }
+	auto cd_read() { return m_cd_read_handler.bind(); }
+	auto cd_write() { return m_cd_write_handler.bind(); }
 
 	// public interfaces
-	DECLARE_WRITE32_MEMBER( berr_w );
-	DECLARE_READ32_MEMBER( berr_r );
+	void berr_w(uint32_t data);
+	uint32_t berr_r();
 
 	uint32_t exp_base();
 
-	DECLARE_WRITE32_MEMBER( exp_base_w );
-	DECLARE_READ32_MEMBER( exp_base_r );
+	void exp_base_w(offs_t offset, uint32_t data, uint32_t mem_mask = ~0);
+	uint32_t exp_base_r();
 
-	DECLARE_WRITE32_MEMBER( exp_config_w );
-	DECLARE_READ32_MEMBER( exp_config_r );
+	void exp_config_w(offs_t offset, uint32_t data, uint32_t mem_mask = ~0);
+	uint32_t exp_config_r();
 
-	DECLARE_WRITE32_MEMBER( ram_config_w );
-	DECLARE_READ32_MEMBER( ram_config_r );
+	void ram_config_w(offs_t offset, uint32_t data, uint32_t mem_mask = ~0);
+	uint32_t ram_config_r();
 
-	DECLARE_WRITE32_MEMBER( rom_config_w );
-	DECLARE_READ32_MEMBER( rom_config_r );
+	void rom_config_w(offs_t offset, uint32_t data, uint32_t mem_mask = ~0);
+	uint32_t rom_config_r();
 
-	DECLARE_WRITE32_MEMBER( biu_w );
-	DECLARE_READ32_MEMBER( biu_r );
+	void biu_w(offs_t offset, uint32_t data, uint32_t mem_mask = ~0);
+	uint32_t biu_r();
 
-	DECLARE_WRITE32_MEMBER( gpu_w );
-	DECLARE_READ32_MEMBER( gpu_r );
+	void gpu_w(offs_t offset, uint32_t data, uint32_t mem_mask = ~0);
+	uint32_t gpu_r(offs_t offset, uint32_t mem_mask = ~0);
 
-	DECLARE_WRITE16_MEMBER( spu_w );
-	DECLARE_READ16_MEMBER( spu_r );
+	void spu_w(offs_t offset, uint16_t data, uint16_t mem_mask = ~0);
+	uint16_t spu_r(offs_t offset, uint16_t mem_mask = ~0);
 
-	DECLARE_WRITE8_MEMBER( cd_w );
-	DECLARE_READ8_MEMBER( cd_r );
+	void cd_w(offs_t offset, uint8_t data, uint8_t mem_mask = ~0);
+	uint8_t cd_r(offs_t offset, uint8_t mem_mask = ~0);
 
-	DECLARE_WRITE32_MEMBER( com_delay_w );
-	DECLARE_READ32_MEMBER( com_delay_r );
+	void com_delay_w(offs_t offset, uint32_t data, uint32_t mem_mask = ~0);
+	uint32_t com_delay_r(offs_t offset, uint32_t mem_mask = ~0);
 
 	static psxcpu_device *getcpu( device_t &device, const char *cputag ) { return downcast<psxcpu_device *>( device.subdevice( cputag ) ); }
 	void set_disable_rom_berr(bool mode);
@@ -204,11 +177,11 @@ protected:
 	virtual void device_add_mconfig(machine_config &config) override;
 
 	// device_execute_interface overrides
-	virtual uint32_t execute_min_cycles() const override { return 1; }
-	virtual uint32_t execute_max_cycles() const override { return 40; }
-	virtual uint32_t execute_input_lines() const override { return 6; }
-	virtual uint64_t execute_clocks_to_cycles(uint64_t clocks) const override { return ( clocks + 3 ) / 4; }
-	virtual uint64_t execute_cycles_to_clocks(uint64_t cycles) const override { return cycles * 4; }
+	virtual uint32_t execute_min_cycles() const noexcept override { return 1; }
+	virtual uint32_t execute_max_cycles() const noexcept override { return 40; }
+	virtual uint32_t execute_input_lines() const noexcept override { return 6; }
+	virtual uint64_t execute_clocks_to_cycles(uint64_t clocks) const noexcept override { return ( clocks + 3 ) / 4; }
+	virtual uint64_t execute_cycles_to_clocks(uint64_t cycles) const noexcept override { return cycles * 4; }
 	virtual void execute_run() override;
 	virtual void execute_set_input(int inputnum, int state) override;
 
@@ -220,7 +193,7 @@ protected:
 	virtual void state_string_export(const device_state_entry &entry, std::string &str) const override;
 
 	// device_disasm_interface overrides
-	virtual util::disasm_interface *create_disassembler() override;
+	virtual std::unique_ptr<util::disasm_interface> create_disassembler() override;
 
 	// CPU registers
 	uint32_t m_pc;
@@ -235,7 +208,8 @@ protected:
 	// address spaces
 	const address_space_config m_program_config;
 	address_space *m_program;
-	direct_read_data<0> *m_direct;
+	memory_access<32, 2, 0, ENDIANNESS_LITTLE>::cache m_instruction;
+	memory_access<32, 2, 0, ENDIANNESS_LITTLE>::specific m_data;
 
 	// other internal states
 	int m_icount;

@@ -21,7 +21,7 @@ DEFINE_DEVICE_TYPE(K054539, k054539_device, "k054539", "K054539 ADPCM")
 k054539_device::k054539_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock)
 	: device_t(mconfig, K054539, tag, owner, clock)
 	, device_sound_interface(mconfig, *this)
-	, device_rom_interface(mconfig, *this, 24)
+	, device_rom_interface(mconfig, *this)
 	, flags(0)
 	, ram(nullptr)
 	, reverb_pos(0)
@@ -32,6 +32,7 @@ k054539_device::k054539_device(const machine_config &mconfig, const char *tag, d
 	, m_timer(nullptr)
 	, m_timer_state(0)
 	, m_timer_handler(*this)
+	, m_apan_cb(*this)
 {
 }
 
@@ -329,7 +330,7 @@ void k054539_device::init_chip()
 	save_item(NAME(flags));
 
 	save_item(NAME(regs));
-	save_pointer(NAME(ram.get()), 0x4000);
+	save_pointer(NAME(ram), 0x4000);
 	save_item(NAME(reverb_pos));
 	save_item(NAME(cur_ptr));
 	save_item(NAME(cur_limit));
@@ -338,7 +339,7 @@ void k054539_device::init_chip()
 	save_item(NAME(m_timer_state));
 }
 
-WRITE8_MEMBER(k054539_device::write)
+void k054539_device::write(offs_t offset, u8 data)
 {
 	if(0) {
 		int voice, reg;
@@ -476,7 +477,7 @@ void k054539_device::device_post_load()
 	cur_limit = rom_addr == 0x80 ? 0x4000 : 0x20000;
 }
 
-READ8_MEMBER(k054539_device::read)
+u8 k054539_device::read(offs_t offset)
 {
 	switch(offset) {
 	case 0x22d:
@@ -503,7 +504,7 @@ void k054539_device::device_start()
 
 	// resolve / bind callbacks
 	m_timer_handler.resolve_safe();
-	m_apan_cb.bind_relative_to(*owner());
+	m_apan_cb.resolve();
 
 	for (auto & elem : gain)
 		elem = 1.0;
@@ -533,6 +534,11 @@ void k054539_device::device_start()
 		pantab[i] = sqrt((double)i) / sqrt((double)0xe);
 
 	init_chip();
+}
+
+void k054539_device::device_clock_changed()
+{
+	stream->set_sample_rate(clock() / 384);
 }
 
 void k054539_device::device_reset()

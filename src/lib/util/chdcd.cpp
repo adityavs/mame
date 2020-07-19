@@ -7,9 +7,9 @@
 
 ***************************************************************************/
 
-#include <ctype.h>
-#include <stdlib.h>
-#include <assert.h>
+#include <cctype>
+#include <cstdlib>
+#include <cassert>
 #include "osdcore.h"
 #include "chd.h"
 #include "chdcd.h"
@@ -262,7 +262,7 @@ static uint32_t parse_wav_sample(const char *filename, uint32_t *dataoffs)
 	}
 
 	/* seek until we find a format tag */
-	while (1)
+	while (true)
 	{
 		file->read(buf, offset, 4, actual);
 		offset += actual;
@@ -329,7 +329,7 @@ static uint32_t parse_wav_sample(const char *filename, uint32_t *dataoffs)
 	offset += length - 16;
 
 	/* seek until we find a data tag */
-	while (1)
+	while (true)
 	{
 		file->read(buf, offset, 4, actual);
 		offset += actual;
@@ -1173,7 +1173,7 @@ chd_error chdcd_parse_toc(const char *tocfname, cdrom_toc &outtoc, chdcd_track_i
 		return chdcd_parse_nero(tocfname, outtoc, outinfo);
 	}
 
-	if (strstr(tocftemp,".iso") || strstr(tocftemp,".cdr"))
+	if (strstr(tocftemp,".iso") || strstr(tocftemp,".cdr") || strstr(tocftemp,".toast"))
 	{
 		return chdcd_parse_iso(tocfname, outtoc, outinfo);
 	}

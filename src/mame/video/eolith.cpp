@@ -4,9 +4,9 @@
 #include "includes/eolith.h"
 
 
-WRITE16_MEMBER(eolith_state::eolith_vram_w)
+void eolith_state::eolith_vram_w(offs_t offset, uint16_t data, uint16_t mem_mask)
 {
-	if ((mem_mask == 0xffff) && (data & ~0x8000))
+	if ((mem_mask == 0xffff) && (~data & 0x8000))
 	{
 		// candy needs this to always write to RAM (verified that certain glitches, for example the high score table, don't occur on real hw)
 		// other games clearly don't.
@@ -16,7 +16,7 @@ WRITE16_MEMBER(eolith_state::eolith_vram_w)
 }
 
 
-READ16_MEMBER(eolith_state::eolith_vram_r)
+uint16_t eolith_state::eolith_vram_r(offs_t offset)
 {
 	return m_vram[offset+(0x40000/2)*m_buffer];
 }
@@ -24,7 +24,7 @@ READ16_MEMBER(eolith_state::eolith_vram_r)
 VIDEO_START_MEMBER(eolith_state,eolith)
 {
 	m_vram = std::make_unique<uint16_t[]>(0x40000);
-	save_pointer(NAME(m_vram.get()), 0x40000);
+	save_pointer(NAME(m_vram), 0x40000);
 	save_item(NAME(m_buffer));
 }
 

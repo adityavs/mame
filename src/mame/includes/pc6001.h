@@ -1,10 +1,10 @@
 // license:BSD-3-Clause
 // copyright-holders:Angelo Salese
+#ifndef MAME_INCLUDES_PC6001_H
+#define MAME_INCLUDES_PC6001_H
 
 #pragma once
 
-#ifndef MAME_INCLUDES_PC6001_H
-#define MAME_INCLUDES_PC6001_H
 
 #include "cpu/z80/z80.h"
 #include "imagedev/cassette.h"
@@ -14,12 +14,12 @@
 #include "sound/ay8910.h"
 #include "sound/upd7752.h"
 //#include "sound/2203intf.h"
-#include "sound/wave.h"
 #include "video/mc6847.h"
 
 #include "bus/generic/slot.h"
 #include "bus/generic/carts.h"
 
+#include "emupal.h"
 #include "speaker.h"
 #include "screen.h"
 
@@ -28,8 +28,8 @@
 class pc6001_state : public driver_device
 {
 public:
-	pc6001_state(const machine_config &mconfig, device_type type, const char *tag)
-		: driver_device(mconfig, type, tag),
+	pc6001_state(const machine_config &mconfig, device_type type, const char *tag) :
+		driver_device(mconfig, type, tag),
 		m_ppi(*this, "ppi8255"),
 		m_ram(*this, "ram"),
 		m_maincpu(*this, "maincpu"),
@@ -42,16 +42,17 @@ public:
 		m_io_mode4_dsw(*this, "MODE4_DSW"),
 		m_io_p1(*this, "P1"),
 		m_io_p2(*this, "P2"),
-		m_io_keys(*this, {"key1", "key2", "key3"}),
+		m_io_keys(*this, "key%u", 1U),
 		m_io_key_modifiers(*this, "key_modifiers"),
 		m_bank1(*this, "bank1"),
-		m_palette(*this, "palette")  { }
+		m_palette(*this, "palette")
+	{ }
 
-	DECLARE_WRITE8_MEMBER(system_latch_w);
-	DECLARE_READ8_MEMBER(nec_ppi8255_r);
-	DECLARE_WRITE8_MEMBER(nec_ppi8255_w);
+	void system_latch_w(uint8_t data);
+	uint8_t nec_ppi8255_r(offs_t offset);
+	void nec_ppi8255_w(offs_t offset, uint8_t data);
 
-	DECLARE_PALETTE_INIT(pc6001);
+	void pc6001_palette(palette_device &palette) const;
 
 	uint32_t screen_update_pc6001(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
 
@@ -60,12 +61,12 @@ public:
 	TIMER_DEVICE_CALLBACK_MEMBER(cassette_callback);
 	TIMER_DEVICE_CALLBACK_MEMBER(keyboard_callback);
 
-	DECLARE_READ8_MEMBER(ppi_porta_r);
-	DECLARE_WRITE8_MEMBER(ppi_porta_w);
-	DECLARE_READ8_MEMBER(ppi_portb_r);
-	DECLARE_WRITE8_MEMBER(ppi_portb_w);
-	DECLARE_WRITE8_MEMBER(ppi_portc_w);
-	DECLARE_READ8_MEMBER(ppi_portc_r);
+	uint8_t ppi_porta_r();
+	void ppi_porta_w(uint8_t data);
+	uint8_t ppi_portb_r();
+	void ppi_portb_w(uint8_t data);
+	void ppi_portc_w(uint8_t data);
+	uint8_t ppi_portc_r();
 
 	IRQ_CALLBACK_MEMBER(irq_callback);
 
@@ -139,8 +140,8 @@ private:
 class pc6001mk2_state : public pc6001_state
 {
 public:
-	pc6001mk2_state(const machine_config &mconfig, device_type type, const char *tag)
-		: pc6001_state(mconfig, type, tag),
+	pc6001mk2_state(const machine_config &mconfig, device_type type, const char *tag) :
+		pc6001_state(mconfig, type, tag),
 		m_bank2(*this, "bank2"),
 		m_bank3(*this, "bank3"),
 		m_bank4(*this, "bank4"),
@@ -148,32 +149,32 @@ public:
 		m_bank6(*this, "bank6"),
 		m_bank7(*this, "bank7"),
 		m_bank8(*this, "bank8")
-	{}
+	{ }
 
-	DECLARE_READ8_MEMBER(mk2_bank_r0_r);
-	DECLARE_READ8_MEMBER(mk2_bank_r1_r);
-	DECLARE_READ8_MEMBER(mk2_bank_w0_r);
-	DECLARE_WRITE8_MEMBER(mk2_bank_r0_w);
-	DECLARE_WRITE8_MEMBER(mk2_bank_r1_w);
-	DECLARE_WRITE8_MEMBER(mk2_bank_w0_w);
-	DECLARE_WRITE8_MEMBER(mk2_opt_bank_w);
-	DECLARE_WRITE8_MEMBER(mk2_work_ram0_w);
-	DECLARE_WRITE8_MEMBER(mk2_work_ram1_w);
-	DECLARE_WRITE8_MEMBER(mk2_work_ram2_w);
-	DECLARE_WRITE8_MEMBER(mk2_work_ram3_w);
-	DECLARE_WRITE8_MEMBER(mk2_work_ram4_w);
-	DECLARE_WRITE8_MEMBER(mk2_work_ram5_w);
-	DECLARE_WRITE8_MEMBER(mk2_work_ram6_w);
-	DECLARE_WRITE8_MEMBER(mk2_work_ram7_w);
-	DECLARE_WRITE8_MEMBER(necmk2_ppi8255_w);
-	DECLARE_WRITE8_MEMBER(mk2_system_latch_w);
-	DECLARE_WRITE8_MEMBER(mk2_vram_bank_w);
-	DECLARE_WRITE8_MEMBER(mk2_col_bank_w);
-	DECLARE_WRITE8_MEMBER(mk2_0xf3_w);
-	DECLARE_WRITE8_MEMBER(mk2_timer_adj_w);
-	DECLARE_WRITE8_MEMBER(mk2_timer_irqv_w);
+	uint8_t mk2_bank_r0_r();
+	uint8_t mk2_bank_r1_r();
+	uint8_t mk2_bank_w0_r();
+	void mk2_bank_r0_w(uint8_t data);
+	void mk2_bank_r1_w(uint8_t data);
+	void mk2_bank_w0_w(uint8_t data);
+	void mk2_opt_bank_w(uint8_t data);
+	void mk2_work_ram0_w(offs_t offset, uint8_t data);
+	void mk2_work_ram1_w(offs_t offset, uint8_t data);
+	void mk2_work_ram2_w(offs_t offset, uint8_t data);
+	void mk2_work_ram3_w(offs_t offset, uint8_t data);
+	void mk2_work_ram4_w(offs_t offset, uint8_t data);
+	void mk2_work_ram5_w(offs_t offset, uint8_t data);
+	void mk2_work_ram6_w(offs_t offset, uint8_t data);
+	void mk2_work_ram7_w(offs_t offset, uint8_t data);
+	void necmk2_ppi8255_w(offs_t offset, uint8_t data);
+	void mk2_system_latch_w(uint8_t data);
+	void mk2_vram_bank_w(uint8_t data);
+	void mk2_col_bank_w(uint8_t data);
+	void mk2_0xf3_w(uint8_t data);
+	void mk2_timer_adj_w(uint8_t data);
+	void mk2_timer_irqv_w(uint8_t data);
 
-	DECLARE_PALETTE_INIT(pc6001mk2);
+	void pc6001mk2_palette(palette_device &palette) const;
 	void pc6001mk2(machine_config &config);
 
 	uint32_t screen_update_pc6001mk2(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
@@ -211,12 +212,12 @@ private:
 class pc6601_state : public pc6001mk2_state
 {
 public:
-	pc6601_state(const machine_config &mconfig, device_type type, const char *tag)
-		: pc6001mk2_state(mconfig, type, tag)
-	{}
+	pc6601_state(const machine_config &mconfig, device_type type, const char *tag) :
+		pc6001mk2_state(mconfig, type, tag)
+	{ }
 
-	DECLARE_READ8_MEMBER(fdc_r);
-	DECLARE_WRITE8_MEMBER(fdc_w);
+	uint8_t fdc_r();
+	void fdc_w(uint8_t data);
 
 	void pc6601(machine_config &config);
 	void pc6601_io(address_map &map);
@@ -225,30 +226,30 @@ public:
 class pc6001sr_state : public pc6601_state
 {
 public:
-	pc6001sr_state(const machine_config &mconfig, device_type type, const char *tag)
-		: pc6601_state(mconfig, type, tag),
+	pc6001sr_state(const machine_config &mconfig, device_type type, const char *tag) :
+		pc6601_state(mconfig, type, tag),
 		m_sr_irq_vectors(*this, "irq_vectors")
-	{};
+	{ }
 
-	DECLARE_READ8_MEMBER(hw_rev_r);
-	DECLARE_READ8_MEMBER(sr_bank_rn_r);
-	DECLARE_WRITE8_MEMBER(sr_bank_rn_w);
-	DECLARE_READ8_MEMBER(sr_bank_wn_r);
-	DECLARE_WRITE8_MEMBER(sr_bank_wn_w);
-	DECLARE_WRITE8_MEMBER(sr_work_ram0_w);
-	DECLARE_WRITE8_MEMBER(sr_work_ram1_w);
-	DECLARE_WRITE8_MEMBER(sr_work_ram2_w);
-	DECLARE_WRITE8_MEMBER(sr_work_ram3_w);
-	DECLARE_WRITE8_MEMBER(sr_work_ram4_w);
-	DECLARE_WRITE8_MEMBER(sr_work_ram5_w);
-	DECLARE_WRITE8_MEMBER(sr_work_ram6_w);
-	DECLARE_WRITE8_MEMBER(sr_work_ram7_w);
-	DECLARE_WRITE8_MEMBER(sr_mode_w);
-	DECLARE_WRITE8_MEMBER(sr_vram_bank_w);
-	DECLARE_WRITE8_MEMBER(sr_system_latch_w);
-	DECLARE_WRITE8_MEMBER(necsr_ppi8255_w);
-	DECLARE_WRITE8_MEMBER(sr_bitmap_yoffs_w);
-	DECLARE_WRITE8_MEMBER(sr_bitmap_xoffs_w);
+	uint8_t hw_rev_r();
+	uint8_t sr_bank_rn_r(offs_t offset);
+	void sr_bank_rn_w(offs_t offset, uint8_t data);
+	uint8_t sr_bank_wn_r(offs_t offset);
+	void sr_bank_wn_w(offs_t offset, uint8_t data);
+	void sr_work_ram0_w(offs_t offset, uint8_t data);
+	void sr_work_ram1_w(offs_t offset, uint8_t data);
+	void sr_work_ram2_w(offs_t offset, uint8_t data);
+	void sr_work_ram3_w(offs_t offset, uint8_t data);
+	void sr_work_ram4_w(offs_t offset, uint8_t data);
+	void sr_work_ram5_w(offs_t offset, uint8_t data);
+	void sr_work_ram6_w(offs_t offset, uint8_t data);
+	void sr_work_ram7_w(offs_t offset, uint8_t data);
+	void sr_mode_w(uint8_t data);
+	void sr_vram_bank_w(uint8_t data);
+	void sr_system_latch_w(uint8_t data);
+	void necsr_ppi8255_w(offs_t offset, uint8_t data);
+	void sr_bitmap_yoffs_w(uint8_t data);
+	void sr_bitmap_xoffs_w(uint8_t data);
 
 	INTERRUPT_GEN_MEMBER(sr_vrtc_irq);
 

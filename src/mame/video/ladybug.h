@@ -6,10 +6,7 @@
 #pragma once
 
 #include "screen.h"
-
-
-#define MCFG_LADYBUG_VIDEO_GFXDECODE(tag) \
-	downcast<ladybug_video_device &>(*device).set_gfxdecode_tag("^" tag);
+#include "tilemap.h"
 
 
 // used by ladybug and sraider
@@ -18,12 +15,12 @@ class ladybug_video_device : public device_t
 public:
 	ladybug_video_device(machine_config const &mconfig, char const *tag, device_t *owner, u32 clock);
 
-	void set_gfxdecode_tag(char const *tag) { m_gfxdecode.set_tag(tag); }
+	template <typename T> void set_gfxdecode_tag(T &&tag) { m_gfxdecode.set_tag(std::forward<T>(tag)); }
 
-	DECLARE_READ8_MEMBER(spr_r) { return m_spr_ram[offset & 0x03ff]; }
-	DECLARE_WRITE8_MEMBER(spr_w) { m_spr_ram[offset & 0x03ff] = data; }
-	DECLARE_READ8_MEMBER(bg_r) { return m_bg_ram[offset & 0x07ff]; }
-	DECLARE_WRITE8_MEMBER(bg_w);
+	uint8_t spr_r(offs_t offset) { return m_spr_ram[offset & 0x03ff]; }
+	void spr_w(offs_t offset, uint8_t data) { m_spr_ram[offset & 0x03ff] = data; }
+	uint8_t bg_r(offs_t offset) { return m_bg_ram[offset & 0x07ff]; }
+	void bg_w(offs_t offset, uint8_t data);
 
 	void draw(screen_device &screen, bitmap_ind16 &bitmap, rectangle const &cliprect, bool flip);
 

@@ -62,23 +62,23 @@
 #include "cop444ds.h"
 
 
-DEFINE_DEVICE_TYPE(COP401, cop401_cpu_device, "cop401", "COP401")
-DEFINE_DEVICE_TYPE(COP410, cop410_cpu_device, "cop410", "COP410")
-DEFINE_DEVICE_TYPE(COP411, cop411_cpu_device, "cop411", "COP411")
-DEFINE_DEVICE_TYPE(COP402, cop402_cpu_device, "cop402", "COP402")
-DEFINE_DEVICE_TYPE(COP420, cop420_cpu_device, "cop420", "COP420")
-DEFINE_DEVICE_TYPE(COP421, cop421_cpu_device, "cop421", "COP421")
-DEFINE_DEVICE_TYPE(COP422, cop422_cpu_device, "cop422", "COP422")
-DEFINE_DEVICE_TYPE(COP404L, cop404l_cpu_device, "cop404l", "COP404L")
-DEFINE_DEVICE_TYPE(COP444L, cop444l_cpu_device, "cop444l", "COP444L")
-DEFINE_DEVICE_TYPE(COP445L, cop445l_cpu_device, "cop445l", "COP445L")
-DEFINE_DEVICE_TYPE(COP404C, cop404c_cpu_device, "cop404c", "COP404C")
-DEFINE_DEVICE_TYPE(COP424C, cop424c_cpu_device, "cop424c", "COP424C")
-DEFINE_DEVICE_TYPE(COP425C, cop425c_cpu_device, "cop425c", "COP425C")
-DEFINE_DEVICE_TYPE(COP426C, cop426c_cpu_device, "cop426c", "COP426C")
-DEFINE_DEVICE_TYPE(COP444C, cop444c_cpu_device, "cop444c", "COP444C")
-DEFINE_DEVICE_TYPE(COP445C, cop445c_cpu_device, "cop445c", "COP445C")
-DEFINE_DEVICE_TYPE(COP446C, cop446c_cpu_device, "cop446c", "COP446C")
+DEFINE_DEVICE_TYPE(COP401, cop401_cpu_device, "cop401", "National Semiconductor COP401")
+DEFINE_DEVICE_TYPE(COP410, cop410_cpu_device, "cop410", "National Semiconductor COP410")
+DEFINE_DEVICE_TYPE(COP411, cop411_cpu_device, "cop411", "National Semiconductor COP411")
+DEFINE_DEVICE_TYPE(COP402, cop402_cpu_device, "cop402", "National Semiconductor COP402")
+DEFINE_DEVICE_TYPE(COP420, cop420_cpu_device, "cop420", "National Semiconductor COP420")
+DEFINE_DEVICE_TYPE(COP421, cop421_cpu_device, "cop421", "National Semiconductor COP421")
+DEFINE_DEVICE_TYPE(COP422, cop422_cpu_device, "cop422", "National Semiconductor COP422")
+DEFINE_DEVICE_TYPE(COP404L, cop404l_cpu_device, "cop404l", "National Semiconductor COP404L")
+DEFINE_DEVICE_TYPE(COP444L, cop444l_cpu_device, "cop444l", "National Semiconductor COP444L")
+DEFINE_DEVICE_TYPE(COP445L, cop445l_cpu_device, "cop445l", "National Semiconductor COP445L")
+DEFINE_DEVICE_TYPE(COP404C, cop404c_cpu_device, "cop404c", "National Semiconductor COP404C")
+DEFINE_DEVICE_TYPE(COP424C, cop424c_cpu_device, "cop424c", "National Semiconductor COP424C")
+DEFINE_DEVICE_TYPE(COP425C, cop425c_cpu_device, "cop425c", "National Semiconductor COP425C")
+DEFINE_DEVICE_TYPE(COP426C, cop426c_cpu_device, "cop426c", "National Semiconductor COP426C")
+DEFINE_DEVICE_TYPE(COP444C, cop444c_cpu_device, "cop444c", "National Semiconductor COP444C")
+DEFINE_DEVICE_TYPE(COP445C, cop445c_cpu_device, "cop445c", "National Semiconductor COP445C")
+DEFINE_DEVICE_TYPE(COP446C, cop446c_cpu_device, "cop446c", "National Semiconductor COP446C")
 
 
 
@@ -96,9 +96,9 @@ DEFINE_DEVICE_TYPE(COP446C, cop446c_cpu_device, "cop446c", "COP446C")
     MACROS
 ***************************************************************************/
 
-#define ROM(a)          m_direct->read_byte(a)
-#define RAM_R(a)        m_data->read_byte(a)
-#define RAM_W(a, v)     m_data->write_byte(a, v)
+#define ROM(a)          m_program.read_byte(a)
+#define RAM_R(a)        m_data.read_byte(a)
+#define RAM_W(a, v)     m_data.write_byte(a, v)
 
 #define IN_G()          (m_read_g(0, 0xff) & m_g_mask)
 #define IN_L()          m_read_l(0, 0xff)
@@ -134,32 +134,38 @@ DEFINE_DEVICE_TYPE(COP446C, cop446c_cpu_device, "cop446c", "COP446C")
     ADDRESS MAPS
 ***************************************************************************/
 
-ADDRESS_MAP_START(cop400_cpu_device::program_512b)
-	AM_RANGE(0x000, 0x1ff) AM_ROM
-ADDRESS_MAP_END
+void cop400_cpu_device::program_512b(address_map &map)
+{
+	map(0x000, 0x1ff).rom();
+}
 
-ADDRESS_MAP_START(cop400_cpu_device::program_1kb)
-	AM_RANGE(0x000, 0x3ff) AM_ROM
-ADDRESS_MAP_END
+void cop400_cpu_device::program_1kb(address_map &map)
+{
+	map(0x000, 0x3ff).rom();
+}
 
-ADDRESS_MAP_START(cop400_cpu_device::program_2kb)
-	AM_RANGE(0x000, 0x7ff) AM_ROM
-ADDRESS_MAP_END
+void cop400_cpu_device::program_2kb(address_map &map)
+{
+	map(0x000, 0x7ff).rom();
+}
 
-ADDRESS_MAP_START(cop400_cpu_device::data_32b)
-	AM_RANGE(0x00, 0x07) AM_MIRROR(0x08) AM_RAM
-	AM_RANGE(0x10, 0x17) AM_MIRROR(0x08) AM_RAM
-	AM_RANGE(0x20, 0x27) AM_MIRROR(0x08) AM_RAM
-	AM_RANGE(0x30, 0x37) AM_MIRROR(0x08) AM_RAM
-ADDRESS_MAP_END
+void cop400_cpu_device::data_32b(address_map &map)
+{
+	map(0x00, 0x07).mirror(0x08).ram();
+	map(0x10, 0x17).mirror(0x08).ram();
+	map(0x20, 0x27).mirror(0x08).ram();
+	map(0x30, 0x37).mirror(0x08).ram();
+}
 
-ADDRESS_MAP_START(cop400_cpu_device::data_64b)
-	AM_RANGE(0x00, 0x3f) AM_RAM
-ADDRESS_MAP_END
+void cop400_cpu_device::data_64b(address_map &map)
+{
+	map(0x00, 0x3f).ram();
+}
 
-ADDRESS_MAP_START(cop400_cpu_device::data_128b)
-	AM_RANGE(0x00, 0x7f) AM_RAM
-ADDRESS_MAP_END
+void cop400_cpu_device::data_128b(address_map &map)
+{
+	map(0x00, 0x7f).ram();
+}
 
 
 cop400_cpu_device::cop400_cpu_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, uint32_t clock, uint8_t program_addr_bits, uint8_t data_addr_bits, uint8_t featuremask, uint8_t g_mask, uint8_t d_mask, uint8_t in_mask, bool has_counter, bool has_inil, address_map_constructor internal_map_program, address_map_constructor internal_map_data)
@@ -1067,9 +1073,8 @@ void cop400_cpu_device::device_timer(emu_timer &timer, device_timer_id id, int p
 void cop400_cpu_device::device_start()
 {
 	/* find address spaces */
-	m_program = &space(AS_PROGRAM);
-	m_direct = m_program->direct<0>();
-	m_data = &space(AS_DATA);
+	space(AS_PROGRAM).cache(m_program);
+	space(AS_DATA).specific(m_data);
 
 	/* find i/o handlers */
 	m_read_l.resolve_safe(0);
@@ -1119,7 +1124,7 @@ void cop400_cpu_device::device_start()
 	save_item(NAME(m_second_byte));
 
 	// setup debugger state display
-	offs_t pc_mask = m_program->addrmask();
+	offs_t pc_mask = m_program.space().addrmask();
 
 	using namespace std::placeholders;
 	state_add(STATE_GENPC, "GENPC", m_pc).mask(pc_mask).noshow();
@@ -1143,7 +1148,7 @@ void cop400_cpu_device::device_start()
 	state_add(COP400_SKIP, "SKIP", m_skip).mask(1);
 #endif
 
-	m_icountptr = &m_icount;
+	set_icountptr(m_icount);
 
 	m_q = 0;
 	m_sa = 0;
@@ -1218,7 +1223,7 @@ void cop400_cpu_device::execute_run()
 		{
 			// debugger hook
 			m_prevpc = PC;
-			debugger_instruction_hook(this, PC);
+			debugger_instruction_hook(PC);
 		}
 
 		// halt logic
@@ -1324,7 +1329,7 @@ void cop400_cpu_device::set_flags(uint8_t flags)
 	m_skl = BIT(flags, 0);
 }
 
-uint8_t cop400_cpu_device::get_m() const
+uint8_t cop400_cpu_device::get_m()
 {
 	auto dis = machine().disable_side_effects();
 	return RAM_R(B);
@@ -1366,34 +1371,26 @@ void cop400_cpu_device::state_string_export(const device_state_entry &entry, std
 }
 
 
-util::disasm_interface *cop400_cpu_device::create_disassembler()
+std::unique_ptr<util::disasm_interface> cop400_cpu_device::create_disassembler()
 {
 	if ( m_featuremask & COP424C_FEATURE )
-	{
-		return new cop424_disassembler;
-	}
-
-	if ( m_featuremask & COP444L_FEATURE )
-	{
-		return new cop444_disassembler;
-	}
-
-	if ( m_featuremask & COP420_FEATURE )
-	{
-		return new cop420_disassembler;
-	}
-
-	return new cop410_disassembler;
+		return std::make_unique<cop424_disassembler>();
+	else if ( m_featuremask & COP444L_FEATURE )
+		return std::make_unique<cop444_disassembler>();
+	else if ( m_featuremask & COP420_FEATURE )
+		return std::make_unique<cop420_disassembler>();
+	else
+		return std::make_unique<cop410_disassembler>();
 }
 
-READ8_MEMBER( cop400_cpu_device::microbus_rd )
+uint8_t cop400_cpu_device::microbus_rd()
 {
 	if (LOG_MICROBUS) logerror("%s %s MICROBUS RD %02x\n", machine().time().as_string(), machine().describe_context(), Q);
 
 	return Q;
 }
 
-WRITE8_MEMBER( cop400_cpu_device::microbus_wr )
+void cop400_cpu_device::microbus_wr(uint8_t data)
 {
 	if (LOG_MICROBUS) logerror("%s %s MICROBUS WR %02x\n", machine().time().as_string(), machine().describe_context(), data);
 

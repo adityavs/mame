@@ -11,18 +11,7 @@
 
 #pragma once
 
-//**************************************************************************
-//  CONFIGURATION MACROS
-//**************************************************************************
-
-#define MCFG_RIPPLE_COUNTER_STAGES(_stages) \
-	downcast<ripple_counter_device &>(*device).set_stages(_stages);
-
-// output callbacks
-#define MCFG_RIPPLE_COUNTER_COUNT_OUT_CB(_devcb) \
-	devcb = &downcast<ripple_counter_device &>(*device).set_count_out_cb(DEVCB_##_devcb);
-#define MCFG_RIPPLE_COUNTER_ROM_OUT_CB(_devcb) \
-	devcb = &downcast<ripple_counter_device &>(*device).set_rom_out_cb(DEVCB_##_devcb);
+#include "dirom.h"
 
 //**************************************************************************
 //  TYPE DEFINITIONS
@@ -30,16 +19,16 @@
 
 // ======================> ripple_counter_device
 
-class ripple_counter_device : public device_t, public device_rom_interface
+class ripple_counter_device : public device_t, public device_rom_interface<14>
 {
 public:
 	// construction/destruction
-	ripple_counter_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock);
+	ripple_counter_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock = 0);
 
 	// configuration
-	void set_stages(u8 stages) { m_count_mask = (1U << stages) - 1; set_rom_addr_width(stages); }
-	template<class Object> devcb_base &set_count_out_cb(Object &&cb) { return m_count_out_cb.set_callback(std::forward<Object>(cb)); }
-	template<class Object> devcb_base &set_rom_out_cb(Object &&cb) { return m_rom_out_cb.set_callback(std::forward<Object>(cb)); }
+	void set_stages(u8 stages) { m_count_mask = (1U << stages) - 1; override_address_width(stages); }
+	auto count_out_cb() { return m_count_out_cb.bind(); }
+	auto rom_out_cb() { return m_rom_out_cb.bind(); }
 
 	// control line handlers
 	DECLARE_WRITE_LINE_MEMBER(clock_w);

@@ -40,13 +40,14 @@ DEFINE_DEVICE_TYPE(NUBUS_SPEC8S3, nubus_spec8s3_device, "nb_sp8s3", "SuperMac Sp
 //  device_add_mconfig - add device configuration
 //-------------------------------------------------
 
-MACHINE_CONFIG_START(nubus_spec8s3_device::device_add_mconfig)
-	MCFG_SCREEN_ADD( SPEC8S3_SCREEN_NAME, RASTER)
-	MCFG_SCREEN_UPDATE_DEVICE(DEVICE_SELF, nubus_spec8s3_device, screen_update)
-	MCFG_SCREEN_RAW_PARAMS(25175000, 800, 0, 640, 525, 0, 480)
-	MCFG_SCREEN_SIZE(1024,768)
-	MCFG_SCREEN_VISIBLE_AREA(0, 1024-1, 0, 768-1)
-MACHINE_CONFIG_END
+void nubus_spec8s3_device::device_add_mconfig(machine_config &config)
+{
+	screen_device &screen(SCREEN(config, SPEC8S3_SCREEN_NAME, SCREEN_TYPE_RASTER));
+	screen.set_screen_update(FUNC(nubus_spec8s3_device::screen_update));
+	screen.set_raw(25175000, 800, 0, 640, 525, 0, 480);
+	screen.set_size(1024, 768);
+	screen.set_visarea(0, 1024-1, 0, 768-1);
+}
 
 //-------------------------------------------------
 //  rom_region - device-specific ROM region
@@ -75,10 +76,9 @@ nubus_spec8s3_device::nubus_spec8s3_device(const machine_config &mconfig, device
 	device_video_interface(mconfig, *this),
 	device_nubus_card_interface(mconfig, *this),
 	m_vram32(nullptr), m_mode(0), m_vbl_disable(0), m_count(0), m_clutoffs(0), m_timer(nullptr),
-	m_assembled_tag(util::string_format("%s:%s", tag, SPEC8S3_SCREEN_NAME)),
 	m_vbl_pending(false), m_parameter(0)
 {
-	set_screen(m_assembled_tag.c_str());
+	set_screen(*this, SPEC8S3_SCREEN_NAME);
 }
 
 //-------------------------------------------------
@@ -97,9 +97,9 @@ void nubus_spec8s3_device::device_start()
 
 	m_vram.resize(VRAM_SIZE);
 	m_vram32 = (uint32_t *)&m_vram[0];
-	nubus().install_device(slotspace, slotspace+VRAM_SIZE-1, read32_delegate(FUNC(nubus_spec8s3_device::vram_r), this), write32_delegate(FUNC(nubus_spec8s3_device::vram_w), this));
-	nubus().install_device(slotspace+0x900000, slotspace+VRAM_SIZE-1+0x900000, read32_delegate(FUNC(nubus_spec8s3_device::vram_r), this), write32_delegate(FUNC(nubus_spec8s3_device::vram_w), this));
-	nubus().install_device(slotspace+0xd0000, slotspace+0xfffff, read32_delegate(FUNC(nubus_spec8s3_device::spec8s3_r), this), write32_delegate(FUNC(nubus_spec8s3_device::spec8s3_w), this));
+	nubus().install_device(slotspace, slotspace+VRAM_SIZE-1, read32s_delegate(*this, FUNC(nubus_spec8s3_device::vram_r)), write32s_delegate(*this, FUNC(nubus_spec8s3_device::vram_w)));
+	nubus().install_device(slotspace+0x900000, slotspace+VRAM_SIZE-1+0x900000, read32s_delegate(*this, FUNC(nubus_spec8s3_device::vram_r)), write32s_delegate(*this, FUNC(nubus_spec8s3_device::vram_w)));
+	nubus().install_device(slotspace+0xd0000, slotspace+0xfffff, read32s_delegate(*this, FUNC(nubus_spec8s3_device::spec8s3_r)), write32s_delegate(*this, FUNC(nubus_spec8s3_device::spec8s3_w)));
 
 	m_timer = timer_alloc(0, nullptr);
 	m_timer->adjust(screen().time_until_pos(767, 0), 0);
@@ -222,7 +222,7 @@ uint32_t nubus_spec8s3_device::screen_update(screen_device &screen, bitmap_rgb32
 	return 0;
 }
 
-WRITE32_MEMBER( nubus_spec8s3_device::spec8s3_w )
+void nubus_spec8s3_device::spec8s3_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	switch (offset)
 	{
@@ -308,7 +308,7 @@ WRITE32_MEMBER( nubus_spec8s3_device::spec8s3_w )
 	}
 }
 
-READ32_MEMBER( nubus_spec8s3_device::spec8s3_r )
+uint32_t nubus_spec8s3_device::spec8s3_r(offs_t offset, uint32_t mem_mask)
 {
 	switch (offset)
 	{
@@ -337,13 +337,13 @@ READ32_MEMBER( nubus_spec8s3_device::spec8s3_r )
 	return 0;
 }
 
-WRITE32_MEMBER( nubus_spec8s3_device::vram_w )
+void nubus_spec8s3_device::vram_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	data ^= 0xffffffff;
 	COMBINE_DATA(&m_vram32[offset]);
 }
 
-READ32_MEMBER( nubus_spec8s3_device::vram_r )
+uint32_t nubus_spec8s3_device::vram_r(offs_t offset, uint32_t mem_mask)
 {
 	return m_vram32[offset] ^ 0xffffffff;
 }

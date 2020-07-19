@@ -126,10 +126,11 @@ DEFINE_DEVICE_TYPE(DUSCC68C562,   duscc68c562_device, "duscc68c562",   "Philips 
 //-------------------------------------------------
 //  device_add_mconfig - add device configuration
 //-------------------------------------------------
-MACHINE_CONFIG_START(duscc_device::device_add_mconfig)
-	MCFG_DEVICE_ADD(CHANA_TAG, DUSCC_CHANNEL, 0)
-	MCFG_DEVICE_ADD(CHANB_TAG, DUSCC_CHANNEL, 0)
-MACHINE_CONFIG_END
+void duscc_device::device_add_mconfig(machine_config &config)
+{
+	DUSCC_CHANNEL(config, CHANA_TAG, 0);
+	DUSCC_CHANNEL(config, CHANB_TAG, 0);
+}
 
 //**************************************************************************
 //  LIVE DEVICE
@@ -375,7 +376,7 @@ void duscc_device::z80daisy_irq_reti()
 	}
 }
 
-READ8_MEMBER( duscc_device::iack )
+uint8_t duscc_device::iack()
 {
 	LOGINT("%s %s - returning vector:%02x\n",tag(), FUNCNAME, m_ivrm);
 	int vec = z80daisy_irq_ack();
@@ -512,7 +513,7 @@ void duscc_device::trigger_interrupt(int index, int state)
 	check_interrupts();
 }
 
-READ8_MEMBER( duscc_device::read )
+uint8_t duscc_device::read(offs_t offset)
 {
 	if ( offset & 0x20 )
 		return m_chanB->read(offset);
@@ -520,7 +521,7 @@ READ8_MEMBER( duscc_device::read )
 		return m_chanA->read(offset);
 }
 
-WRITE8_MEMBER( duscc_device::write )
+void duscc_device::write(offs_t offset, uint8_t data)
 {
 	if ( offset & 0x20 )
 		m_chanB->write(data, offset);
@@ -731,7 +732,7 @@ void duscc_channel::device_timer(emu_timer &timer, device_timer_id id, int param
 			m_ictsr |= REG_ICTSR_ZERO_DET; // set zero detection bit
 
 			// Generate interrupt?
-			if ( ( (m_ctcr & REG_CTCR_ZERO_DET_INT) == 1 ) &&
+			if ( ( (m_ctcr & REG_CTCR_ZERO_DET_INT) == REG_CTCR_ZERO_DET_INT ) &&
 					( (m_uart->m_icr & (m_index == duscc_device::CHANNEL_A ? duscc_device::REG_ICR_CHA : duscc_device::REG_ICR_CHB) ) != 0) )
 			{
 				LOG("Zero Detect Interrupt pending\n");
@@ -2394,7 +2395,7 @@ void duscc_channel::receive_data(uint8_t data)
 //  cts_w - clear to send handler
 //-------------------------------------------------
 
-WRITE_LINE_MEMBER( duscc_channel::cts_w )
+void duscc_channel::cts_w(int state)
 {
 	LOG("\"%s\" %s: %c : CTS %u\n", owner()->tag(), FUNCNAME, 'A' + m_index, state);
 
@@ -2424,7 +2425,7 @@ WRITE_LINE_MEMBER( duscc_channel::cts_w )
 //-------------------------------------------------
 //  dcd_w - data carrier detected handler
 //-------------------------------------------------
-WRITE_LINE_MEMBER( duscc_channel::dcd_w )
+void duscc_channel::dcd_w(int state)
 {
 	LOG("\"%s\" %s: %c : DCD %u - not implemented\n", owner()->tag(), FUNCNAME, 'A' + m_index, state);
 #if 0
@@ -2448,7 +2449,7 @@ WRITE_LINE_MEMBER( duscc_channel::dcd_w )
 //  ri_w - ring indicator handler
 //-------------------------------------------------
 
-WRITE_LINE_MEMBER( duscc_channel::ri_w )
+void duscc_channel::ri_w(int state)
 {
 	LOG("\"%s\" %s: %c : RI %u - not implemented\n", owner()->tag(), FUNCNAME, 'A' + m_index, state);
 #if 0
@@ -2463,7 +2464,7 @@ WRITE_LINE_MEMBER( duscc_channel::ri_w )
 //-------------------------------------------------
 //  sync_w - sync handler
 //-------------------------------------------------
-WRITE_LINE_MEMBER( duscc_channel::sync_w )
+void duscc_channel::sync_w(int state)
 {
 	LOG("\"%s\" %s: %c : SYNC %u - not implemented\n", owner()->tag(), FUNCNAME, 'A' + m_index, state);
 }
@@ -2471,7 +2472,7 @@ WRITE_LINE_MEMBER( duscc_channel::sync_w )
 //-------------------------------------------------
 //  rxc_w - receive clock
 //-------------------------------------------------
-WRITE_LINE_MEMBER( duscc_channel::rxc_w )
+void duscc_channel::rxc_w(int state)
 {
 	LOG("\"%s\" %s: %c : RXC %u - not implemented\n", owner()->tag(), FUNCNAME, 'A' + m_index, state);
 }
@@ -2479,7 +2480,7 @@ WRITE_LINE_MEMBER( duscc_channel::rxc_w )
 //-------------------------------------------------
 //  txc_w - transmit clock
 //-------------------------------------------------
-WRITE_LINE_MEMBER( duscc_channel::txc_w )
+void duscc_channel::txc_w(int state)
 {
 	LOG("\"%s\" %s: %c : TXC %u - not implemented\n", owner()->tag(), FUNCNAME, 'A' + m_index, state);
 }
@@ -2557,7 +2558,7 @@ void duscc_channel::set_dtr(int state)
 //  write_rx - called by terminal through rs232/diserial
 //         when character is sent to board
 //-------------------------------------------------
-WRITE_LINE_MEMBER(duscc_channel::write_rx)
+void duscc_channel::write_rx(int state)
 {
 	m_rxd = state;
 	//only use rx_w when self-clocked

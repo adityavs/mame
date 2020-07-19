@@ -1,12 +1,12 @@
 // license:BSD-3-Clause
 // copyright-holders:Mathis Rosenhauer
-#include <math.h>
+#include <cmath>
 #include "emu.h"
 #include "includes/vectrex.h"
 #include "cpu/m6809/m6809.h"
 
 
-#define ANALOG_DELAY 7800
+#define ANALOG_DELAY 8500
 
 #define INT_PER_CLOCK 550
 
@@ -49,7 +49,7 @@ TIMER_CALLBACK_MEMBER(vectrex_base_state::lightpen_trigger)
 
 	if (m_lightpen_port & 2)
 	{
-		m_maincpu->set_input_line(M6809_FIRQ_LINE, PULSE_LINE);
+		m_maincpu->pulse_input_line(M6809_FIRQ_LINE, m_maincpu->minimum_quantum_time());
 	}
 }
 
@@ -73,12 +73,12 @@ TIMER_CALLBACK_MEMBER(vectrex_base_state::lightpen_trigger)
 
 *********************************************************************/
 
-READ8_MEMBER(vectrex_base_state::vectrex_via_r)
+uint8_t vectrex_base_state::vectrex_via_r(offs_t offset)
 {
-	return m_via6522_0->read(space, offset);
+	return m_via6522_0->read(offset);
 }
 
-WRITE8_MEMBER(vectrex_base_state::vectrex_via_w)
+void vectrex_base_state::vectrex_via_w(offs_t offset, uint8_t data)
 {
 	attotime period;
 
@@ -102,7 +102,7 @@ WRITE8_MEMBER(vectrex_base_state::vectrex_via_w)
 									period);
 		break;
 	}
-	m_via6522_0->write(space, offset, data);
+	m_via6522_0->write(offset, data);
 }
 
 
@@ -275,7 +275,7 @@ void vectrex_base_state::vectrex_multiplexer(int mux)
 }
 
 
-WRITE8_MEMBER(vectrex_base_state::v_via_pb_w)
+void vectrex_base_state::v_via_pb_w(uint8_t data)
 {
 	if (!(data & 0x80))
 	{
@@ -339,15 +339,15 @@ WRITE8_MEMBER(vectrex_base_state::v_via_pb_w)
 
 	/* Cartridge bank-switching */
 	if (m_cart && ((data ^ m_via_out[PORTB]) & 0x40))
-		m_cart->write_bank(space, 0, data);
+		m_cart->write_bank(data);
 
 	/* Sound */
 	if (data & 0x10)
 	{
 		if (data & 0x08) /* BC1 (do we select a reg or write it ?) */
-			m_ay8912->address_w(space, 0, m_via_out[PORTA]);
+			m_ay8912->address_w(m_via_out[PORTA]);
 		else
-			m_ay8912->data_w(space, 0, m_via_out[PORTA]);
+			m_ay8912->data_w(m_via_out[PORTA]);
 	}
 
 	if (!(data & 0x1) && (m_via_out[PORTB] & 0x1))
@@ -358,7 +358,7 @@ WRITE8_MEMBER(vectrex_base_state::v_via_pb_w)
 }
 
 
-WRITE8_MEMBER(vectrex_base_state::v_via_pa_w)
+void vectrex_base_state::v_via_pa_w(uint8_t data)
 {
 	/* DAC output always goes to Y integrator */
 	m_via_out[PORTA] = data;
@@ -411,7 +411,7 @@ WRITE_LINE_MEMBER(vectrex_base_state::v_via_cb2_w)
 
 *****************************************************************/
 
-WRITE8_MEMBER(raaspec_state::raaspec_led_w)
+void raaspec_state::raaspec_led_w(uint8_t data)
 {
 	logerror("Spectrum I+ LED: %i%i%i%i%i%i%i%i\n",
 				(data>>7)&0x1, (data>>6)&0x1, (data>>5)&0x1, (data>>4)&0x1,

@@ -5,6 +5,10 @@
     Star Fire/Fire One system
 
 ***************************************************************************/
+#ifndef MAME_INCLUDES_STARFIRE_H
+#define MAME_INCLUDES_STARFIRE_H
+
+#pragma once
 
 #include "sound/samples.h"
 #include "screen.h"
@@ -25,15 +29,25 @@
 class starfire_state : public driver_device
 {
 public:
-	starfire_state(const machine_config &mconfig, device_type type, const char *tag)
-		: driver_device(mconfig, type, tag),
+	starfire_state(const machine_config &mconfig, device_type type, const char *tag) :
+		driver_device(mconfig, type, tag),
 		m_starfire_colorram(*this, "colorram"),
 		m_starfire_videoram(*this, "videoram"),
 		m_samples(*this, "samples"),
 		m_nmi(*this, "NMI"),
+		m_input_read(*this),
+		m_io2_write(*this),
 		m_maincpu(*this, "maincpu"),
-		m_screen(*this, "screen") { }
+		m_screen(*this, "screen")
+	{ }
 
+	void fireone(machine_config &config);
+	void starfire(machine_config &config);
+
+	void init_starfire();
+	void init_fireone();
+
+private:
 	required_shared_ptr<uint8_t> m_starfire_colorram;
 	required_shared_ptr<uint8_t> m_starfire_videoram;
 	optional_device<samples_device> m_samples;
@@ -47,31 +61,32 @@ public:
 	uint8_t m_starfire_color;
 	uint16_t m_starfire_colors[STARFIRE_NUM_PENS];
 
-	read8_delegate m_input_read;
-	write8_delegate m_io2_write;
+	read8sm_delegate m_input_read;
+	write8smo_delegate m_io2_write;
 
 	emu_timer* m_scanline_timer;
 	bitmap_rgb32 m_starfire_screen;
-	DECLARE_WRITE8_MEMBER(starfire_scratch_w);
-	DECLARE_READ8_MEMBER(starfire_scratch_r);
-	DECLARE_READ8_MEMBER(starfire_input_r);
-	DECLARE_READ8_MEMBER(fireone_input_r);
-	DECLARE_WRITE8_MEMBER(starfire_sound_w);
-	DECLARE_WRITE8_MEMBER(fireone_sound_w);
-	DECLARE_WRITE8_MEMBER(starfire_colorram_w);
-	DECLARE_READ8_MEMBER(starfire_colorram_r);
-	DECLARE_WRITE8_MEMBER(starfire_videoram_w);
-	DECLARE_READ8_MEMBER(starfire_videoram_r);
-	DECLARE_DRIVER_INIT(starfire);
-	DECLARE_DRIVER_INIT(fireone);
+
+	required_device<cpu_device> m_maincpu;
+	required_device<screen_device> m_screen;
+
+	void starfire_scratch_w(offs_t offset, uint8_t data);
+	uint8_t starfire_scratch_r(offs_t offset);
+	uint8_t starfire_input_r(offs_t offset);
+	uint8_t fireone_input_r(offs_t offset);
+	void starfire_sound_w(uint8_t data);
+	void fireone_sound_w(uint8_t data);
+	void starfire_colorram_w(offs_t offset, uint8_t data);
+	uint8_t starfire_colorram_r(offs_t offset);
+	void starfire_videoram_w(offs_t offset, uint8_t data);
+	uint8_t starfire_videoram_r(offs_t offset);
 	virtual void video_start() override;
 	uint32_t screen_update_starfire(screen_device &screen, bitmap_rgb32 &bitmap, const rectangle &cliprect);
 	TIMER_CALLBACK_MEMBER(starfire_scanline_callback);
 	INTERRUPT_GEN_MEMBER(vblank_int);
 	void get_pens(pen_t *pens);
-	required_device<cpu_device> m_maincpu;
-	required_device<screen_device> m_screen;
-	void fireone(machine_config &config);
-	void starfire(machine_config &config);
+
 	void main_map(address_map &map);
 };
+
+#endif // MAME_INCLUDES_STARFIRE_H

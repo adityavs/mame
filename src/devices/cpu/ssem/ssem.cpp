@@ -75,7 +75,7 @@ inline void ssem_device::program_write32(uint32_t address, uint32_t data)
 
 /*****************************************************************************/
 
-DEFINE_DEVICE_TYPE(SSEMCPU, ssem_device, "ssem_cpu", "SSEM CPU")
+DEFINE_DEVICE_TYPE(SSEMCPU, ssem_device, "ssem_cpu", "Manchester SSEM")
 
 //-------------------------------------------------
 //  ssem_device - constructor
@@ -112,7 +112,7 @@ void ssem_device::device_start()
 	save_item(NAME(m_halt));
 
 	// set our instruction counter
-	m_icountptr = &m_icount;
+	set_icountptr(m_icount);
 }
 
 void ssem_device::device_stop()
@@ -163,9 +163,9 @@ void ssem_device::state_string_export(const device_state_entry &entry, std::stri
 //  helper function
 //-------------------------------------------------
 
-util::disasm_interface *ssem_device::create_disassembler()
+std::unique_ptr<util::disasm_interface> ssem_device::create_disassembler()
 {
-	return new ssem_disassembler;
+	return std::make_unique<ssem_disassembler>();
 }
 
 
@@ -178,7 +178,7 @@ util::disasm_interface *ssem_device::create_disassembler()
 //  cycles it takes for one instruction to execute
 //-------------------------------------------------
 
-uint32_t ssem_device::execute_min_cycles() const
+uint32_t ssem_device::execute_min_cycles() const noexcept
 {
 	return 1;
 }
@@ -189,7 +189,7 @@ uint32_t ssem_device::execute_min_cycles() const
 //  cycles it takes for one instruction to execute
 //-------------------------------------------------
 
-uint32_t ssem_device::execute_max_cycles() const
+uint32_t ssem_device::execute_max_cycles() const noexcept
 {
 	return 1;
 }
@@ -200,7 +200,7 @@ uint32_t ssem_device::execute_max_cycles() const
 //  input/interrupt lines
 //-------------------------------------------------
 
-uint32_t ssem_device::execute_input_lines() const
+uint32_t ssem_device::execute_input_lines() const noexcept
 {
 	return 0;
 }
@@ -230,7 +230,7 @@ void ssem_device::execute_run()
 
 	while (m_icount > 0)
 	{
-		debugger_instruction_hook(this, m_pc);
+		debugger_instruction_hook(m_pc);
 
 		op = program_read32(m_pc);
 

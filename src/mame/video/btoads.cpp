@@ -47,7 +47,7 @@ void btoads_state::video_start()
  *
  *************************************/
 
-WRITE16_MEMBER( btoads_state::misc_control_w )
+void btoads_state::misc_control_w(offs_t offset, uint16_t data, uint16_t mem_mask)
 {
 	COMBINE_DATA(&m_misc_control);
 
@@ -56,7 +56,7 @@ WRITE16_MEMBER( btoads_state::misc_control_w )
 }
 
 
-WRITE16_MEMBER( btoads_state::display_control_w )
+void btoads_state::display_control_w(offs_t offset, uint16_t data, uint16_t mem_mask)
 {
 	if (ACCESSING_BITS_8_15)
 	{
@@ -90,7 +90,7 @@ WRITE16_MEMBER( btoads_state::display_control_w )
  *
  *************************************/
 
-WRITE16_MEMBER( btoads_state::scroll0_w )
+void btoads_state::scroll0_w(offs_t offset, uint16_t data, uint16_t mem_mask)
 {
 	/* allow multiple changes during display */
 //  m_screen->update_now();
@@ -104,7 +104,7 @@ WRITE16_MEMBER( btoads_state::scroll0_w )
 }
 
 
-WRITE16_MEMBER( btoads_state::scroll1_w )
+void btoads_state::scroll1_w(offs_t offset, uint16_t data, uint16_t mem_mask)
 {
 	/* allow multiple changes during display */
 //  m_screen->update_now();
@@ -125,15 +125,15 @@ WRITE16_MEMBER( btoads_state::scroll1_w )
  *
  *************************************/
 
-WRITE16_MEMBER( btoads_state::paletteram_w )
+void btoads_state::paletteram_w(offs_t offset, uint16_t data)
 {
-	m_tlc34076->write(space, offset/2, data);
+	m_tlc34076->write(offset/2, data);
 }
 
 
-READ16_MEMBER( btoads_state::paletteram_r )
+uint16_t btoads_state::paletteram_r(offs_t offset)
 {
-	return m_tlc34076->read(space, offset/2);
+	return m_tlc34076->read(offset/2);
 }
 
 
@@ -144,25 +144,25 @@ READ16_MEMBER( btoads_state::paletteram_r )
  *
  *************************************/
 
-WRITE16_MEMBER( btoads_state::vram_bg0_w )
+void btoads_state::vram_bg0_w(offs_t offset, uint16_t data, uint16_t mem_mask)
 {
 	COMBINE_DATA(&m_vram_bg0[offset & 0x3fcff]);
 }
 
 
-WRITE16_MEMBER( btoads_state::vram_bg1_w )
+void btoads_state::vram_bg1_w(offs_t offset, uint16_t data, uint16_t mem_mask)
 {
 	COMBINE_DATA(&m_vram_bg1[offset & 0x3fcff]);
 }
 
 
-READ16_MEMBER( btoads_state::vram_bg0_r )
+uint16_t btoads_state::vram_bg0_r(offs_t offset)
 {
 	return m_vram_bg0[offset & 0x3fcff];
 }
 
 
-READ16_MEMBER( btoads_state::vram_bg1_r )
+uint16_t btoads_state::vram_bg1_r(offs_t offset)
 {
 	return m_vram_bg1[offset & 0x3fcff];
 }
@@ -175,27 +175,27 @@ READ16_MEMBER( btoads_state::vram_bg1_r )
  *
  *************************************/
 
-WRITE16_MEMBER( btoads_state::vram_fg_display_w )
+void btoads_state::vram_fg_display_w(offs_t offset, uint16_t data, uint16_t mem_mask)
 {
 	if (ACCESSING_BITS_0_7)
 		m_vram_fg_display[offset] = data;
 }
 
 
-WRITE16_MEMBER( btoads_state::vram_fg_draw_w )
+void btoads_state::vram_fg_draw_w(offs_t offset, uint16_t data, uint16_t mem_mask)
 {
 	if (ACCESSING_BITS_0_7)
 		m_vram_fg_draw[offset] = data;
 }
 
 
-READ16_MEMBER( btoads_state::vram_fg_display_r )
+uint16_t btoads_state::vram_fg_display_r(offs_t offset)
 {
 	return m_vram_fg_display[offset];
 }
 
 
-READ16_MEMBER( btoads_state::vram_fg_draw_r )
+uint16_t btoads_state::vram_fg_draw_r(offs_t offset)
 {
 	return m_vram_fg_draw[offset];
 }
@@ -327,7 +327,7 @@ TMS340X0_SCANLINE_RGB32_CB_MEMBER(btoads_state::scanline_update)
 	uint16_t *bg1_base = &m_vram_bg1[(fulladdr + (m_yscroll1 << 10)) & 0x3fc00];
 	uint8_t *spr_base = &m_vram_fg_display[fulladdr & 0x3fc00];
 	uint32_t *dst = &bitmap.pix32(scanline);
-	const rgb_t *pens = m_tlc34076->get_pens();
+	const pen_t *pens = m_tlc34076->pens();
 	int coladdr = fulladdr & 0x3ff;
 	int x;
 

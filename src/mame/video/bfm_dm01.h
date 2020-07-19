@@ -10,10 +10,8 @@
 
 #pragma once
 
+#include "emupal.h"
 #include "screen.h"
-
-#define MCFG_BFM_DM01_BUSY_CB(_devcb) \
-	devcb = &downcast<bfm_dm01_device &>(*device).set_busy_callback(DEVCB_##_devcb);
 
 class bfm_dm01_device : public device_t
 {
@@ -21,16 +19,16 @@ public:
 	bfm_dm01_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
 	~bfm_dm01_device() {}
 
-	template <class Object> devcb_base &set_busy_callback(Object &&cb) { return m_busy_cb.set_callback(std::forward<Object>(cb)); }
+	auto busy_callback() { return m_busy_cb.bind(); }
 
-	DECLARE_READ8_MEMBER( control_r );
-	DECLARE_WRITE8_MEMBER( control_w );
-	DECLARE_READ8_MEMBER( mux_r );
-	DECLARE_WRITE8_MEMBER( mux_w );
-	DECLARE_READ8_MEMBER( comm_r );
-	DECLARE_WRITE8_MEMBER( comm_w );
-	DECLARE_READ8_MEMBER( unknown_r );
-	DECLARE_WRITE8_MEMBER( unknown_w );
+	uint8_t control_r();
+	void control_w(uint8_t data);
+	uint8_t mux_r();
+	void mux_w(uint8_t data);
+	uint8_t comm_r();
+	void comm_w(uint8_t data);
+	uint8_t unknown_r();
+	void unknown_w(uint8_t data);
 
 	void writedata(uint8_t data);
 	int busy(void);

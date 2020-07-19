@@ -2,7 +2,7 @@
 // copyright-holders:Aaron Giles
 /*********************************************************************
 
-    dvstate.c
+    dvstate.cpp
 
     State debugger view.
 
@@ -31,8 +31,8 @@ const int debug_view_state::REG_FRAME;
 //  debug_view_state_source - constructor
 //-------------------------------------------------
 
-debug_view_state_source::debug_view_state_source(const char *name, device_t &device)
-	: debug_view_source(name, &device)
+debug_view_state_source::debug_view_state_source(std::string &&name, device_t &device)
+	: debug_view_source(std::move(name), &device)
 	, m_stateintf(dynamic_cast<device_state_interface *>(&device))
 	, m_execintf(dynamic_cast<device_execute_interface *>(&device))
 {
@@ -55,7 +55,7 @@ debug_view_state::debug_view_state(running_machine &machine, debug_view_osd_upda
 {
 	// fail if no available sources
 	enumerate_sources();
-	if (m_source_list.count() == 0)
+	if (m_source_list.empty())
 		throw std::bad_alloc();
 }
 
@@ -78,18 +78,20 @@ debug_view_state::~debug_view_state()
 void debug_view_state::enumerate_sources()
 {
 	// start with an empty list
-	m_source_list.reset();
+	m_source_list.clear();
 
 	// iterate over devices that have state interfaces
-	std::string name;
 	for (device_state_interface &state : state_interface_iterator(machine().root_device()))
 	{
-		name = string_format("%s '%s'", state.device().name(), state.device().tag());
-		m_source_list.append(*global_alloc(debug_view_state_source(name.c_str(), state.device())));
+		m_source_list.emplace_back(
+				std::make_unique<debug_view_state_source>(
+					util::string_format("%s '%s'", state.device().name(), state.device().tag()),
+					state.device()));
 	}
 
 	// reset the source to a known good entry
-	set_source(*m_source_list.first());
+	if (!m_source_list.empty())
+		set_source(*m_source_list[0]);
 }
 
 
@@ -136,7 +138,7 @@ void debug_view_state::recompute()
 	}
 	else if (screen_count > 1)
 	{
-		for (int i = 0; i < screen_count; i++, iter++)
+		for (int i = 0; (i < screen_count) && (i < 8); i++, iter++)
 		{
 			m_state_list.emplace_back(REG_BEAMX_S0 - i, string_format("beamx%d", i).c_str(), 4);
 			m_state_list.emplace_back(REG_BEAMY_S0 - i, string_format("beamy%d", i).c_str(), 4);

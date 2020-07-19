@@ -25,16 +25,13 @@
 //**************************************************************************
 
 // device type definition
-extern const device_type FD1094;
+DECLARE_DEVICE_TYPE(FD1094, fd1094_device)
 
 
 
 //**************************************************************************
 //  TYPE DEFINITIONS
 //**************************************************************************
-
-class fd1094_device;
-
 
 // ======================> fd1094_decryption_cache
 
@@ -105,7 +102,7 @@ protected:
 	IRQ_CALLBACK_MEMBER( irq_callback );
 
 	// static helpers
-	DECLARE_WRITE32_MEMBER(cmp_callback);
+	void cmp_callback(offs_t offset, uint32_t data);
 	DECLARE_WRITE_LINE_MEMBER(rte_callback);
 
 	// internal state

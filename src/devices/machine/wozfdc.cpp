@@ -45,10 +45,11 @@ const tiny_rom_entry *wozfdc_device::device_rom_region() const
 //  device_add_mconfig - add device configuration
 //-------------------------------------------------
 
-MACHINE_CONFIG_START(wozfdc_device::device_add_mconfig)
-	MCFG_DEVICE_ADD("phaselatch", F9334, 0) // 9334 on circuit diagram but 74LS259 in parts list; actual chip may vary
-	MCFG_ADDRESSABLE_LATCH_PARALLEL_OUT_CB(WRITE8(wozfdc_device, set_phase))
-MACHINE_CONFIG_END
+void wozfdc_device::device_add_mconfig(machine_config &config)
+{
+	F9334(config, m_phaselatch); // 9334 on circuit diagram but 74LS259 in parts list; actual chip may vary
+	m_phaselatch->parallel_out_cb().set(FUNC(wozfdc_device::set_phase));
+}
 
 //**************************************************************************
 //  LIVE DEVICE
@@ -216,7 +217,7 @@ void wozfdc_device::write(offs_t offset, uint8_t data)
 	last_6502_write = data;
 }
 
-WRITE8_MEMBER(wozfdc_device::set_phase)
+void wozfdc_device::set_phase(uint8_t data)
 {
 	if (floppy && active)
 		floppy->seek_phase_w(data);

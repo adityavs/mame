@@ -130,6 +130,22 @@ i8245_device::i8245_device(const machine_config &mconfig, const char *tag, devic
 
 
 //-------------------------------------------------
+//  device_config_complete - perform any
+//  operations now that the configuration is
+//  complete
+//-------------------------------------------------
+
+void i8244_device::device_config_complete()
+{
+	if (!has_screen())
+		return;
+
+	if (!screen().refresh_attoseconds())
+		screen().set_raw(clock(), LINE_CLOCKS, START_ACTIVE_SCAN, END_ACTIVE_SCAN, m_screen_lines, START_Y, START_Y + SCREEN_HEIGHT);
+}
+
+
+//-------------------------------------------------
 //  device_start - device-specific startup
 //-------------------------------------------------
 
@@ -178,32 +194,29 @@ void i8244_device::device_reset()
 }
 
 
-PALETTE_INIT_MEMBER(i8244_device, i8244)
+void i8244_device::i8244_palette(palette_device &palette) const
 {
-	static const uint8_t i8244_colors[3*16] =
+	static constexpr rgb_t i8244_colors[16] =
 	{
-		0x00, 0x00, 0x00, // i r g b
-		0x00, 0x00, 0xAA, // i r g B
-		0x00, 0xAA, 0x00, // i r G b
-		0x00, 0xAA, 0xAA, // i r G B
-		0xAA, 0x00, 0x00, // i R g b
-		0xAA, 0x00, 0xAA, // i R g B
-		0xAA, 0xAA, 0x00, // i R G b
-		0xAA, 0xAA, 0xAA, // i R G B
-		0x55, 0x55, 0x55, // I r g b
-		0x55, 0x55, 0xFF, // I r g B
-		0x55, 0xFF, 0x55, // I r G b
-		0x55, 0xFF, 0xFF, // I r G B
-		0xFF, 0x55, 0x55, // I R g b
-		0xFF, 0x55, 0xFF, // I R g B
-		0xFF, 0xFF, 0x55, // I R G b
-		0xFF, 0xFF, 0xFF, // I R G B
+		{ 0x00, 0x00, 0x00 }, // i r g b
+		{ 0x00, 0x00, 0xaa }, // i r g B
+		{ 0x00, 0xaa, 0x00 }, // i r G b
+		{ 0x00, 0xaa, 0xaa }, // i r G B
+		{ 0xaa, 0x00, 0x00 }, // i R g b
+		{ 0xaa, 0x00, 0xaa }, // i R g B
+		{ 0xaa, 0xaa, 0x00 }, // i R G b
+		{ 0xaa, 0xaa, 0xaa }, // i R G B
+		{ 0x55, 0x55, 0x55 }, // I r g b
+		{ 0x55, 0x55, 0xff }, // I r g B
+		{ 0x55, 0xff, 0x55 }, // I r G b
+		{ 0x55, 0xff, 0xff }, // I r G B
+		{ 0xff, 0x55, 0x55 }, // I R g b
+		{ 0xff, 0x55, 0xff }, // I R g B
+		{ 0xff, 0xff, 0x55 }, // I R G b
+		{ 0xff, 0xff, 0xff }  // I R G B
 	};
 
-	for ( int i = 0; i < 16; i++ )
-	{
-		palette.set_pen_color( i, i8244_colors[i*3], i8244_colors[i*3+1], i8244_colors[i*3+2] );
-	}
+	palette.set_pen_colors( 0, i8244_colors );
 }
 
 
@@ -279,7 +292,7 @@ offs_t i8244_device::fix_register_mirrors( offs_t offset )
 }
 
 
-READ8_MEMBER(i8244_device::read)
+uint8_t i8244_device::read(offs_t offset)
 {
 	uint8_t data;
 
@@ -329,7 +342,7 @@ READ8_MEMBER(i8244_device::read)
 }
 
 
-WRITE8_MEMBER(i8244_device::write)
+void i8244_device::write(offs_t offset, uint8_t data)
 {
 	offset = fix_register_mirrors( offset );
 
@@ -354,7 +367,7 @@ WRITE8_MEMBER(i8244_device::write)
 }
 
 
-READ_LINE_MEMBER(i8244_device::vblank)
+int i8244_device::vblank()
 {
 	if ( screen().vpos() > m_start_vpos && screen().vpos() < m_start_vblank )
 	{
@@ -364,7 +377,7 @@ READ_LINE_MEMBER(i8244_device::vblank)
 }
 
 
-READ_LINE_MEMBER(i8244_device::hblank)
+int i8244_device::hblank()
 {
 	int hpos = screen().hpos();
 	int vpos = screen().vpos();

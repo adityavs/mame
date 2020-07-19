@@ -61,18 +61,18 @@ void MODEL2_FUNC_NAME(int32_t scanline, const extent_t& extent, const m2_poly_ex
 #if !defined( MODEL2_TRANSLUCENT)
 	model2_state *state = object.state;
 	bitmap_rgb32 *destmap = (bitmap_rgb32 *)&m_destmap;
-	uint32_t *p = &destmap->pix32(scanline);
-//	uint8_t  *gamma_value = &state->m_gamma_table[0];
+	u32 *p = &destmap->pix32(scanline);
+//  u8  *gamma_value = &state->m_gamma_table[0];
 
 	/* extract color information */
-//	const uint16_t *colortable_r = &state->m_colorxlat[0x0000/2];
-//	const uint16_t *colortable_g = &state->m_colorxlat[0x4000/2];
-//	const uint16_t *colortable_b = &state->m_colorxlat[0x8000/2];
-//	const uint16_t *lumaram = &state->m_lumaram[0];
-//	uint32_t  lumabase = object.lumabase;
-	uint32_t  color = object.colorbase;
-//	uint8_t   luma;
-	uint32_t  tr, tg, tb;
+//  const u16 *colortable_r = &state->m_colorxlat[0x0000/2];
+//  const u16 *colortable_g = &state->m_colorxlat[0x4000/2];
+//  const u16 *colortable_b = &state->m_colorxlat[0x8000/2];
+//  const u16 *lumaram = &state->m_lumaram[0];
+//  u32  lumabase = object.lumabase;
+	u32  color = object.colorbase;
+//  u8   luma;
+	u32  tr, tg, tb;
 	int     x;
 #endif
 	/* if it's translucent, there's nothing to render */
@@ -80,16 +80,16 @@ void MODEL2_FUNC_NAME(int32_t scanline, const extent_t& extent, const m2_poly_ex
 	return;
 #else
 
-//	luma = lumaram[(lumabase + (0xf << 3))];
+//  luma = lumaram[(lumabase + (0xf << 3))];
 
 	// fix luma overflow
-//	luma = std::min((int)luma,0x3f);
+//  luma = std::min((int)luma,0x3f);
 
 	color = state->m_palram[(color + 0x1000)] & 0xffff;
 
-//	colortable_r += ((color >>  0) & 0x1f) << 8;
-//	colortable_g += ((color >>  5) & 0x1f) << 8;
-//	colortable_b += ((color >> 10) & 0x1f) << 8;
+//  colortable_r += ((color >>  0) & 0x1f) << 8;
+//  colortable_g += ((color >>  5) & 0x1f) << 8;
+//  colortable_b += ((color >> 10) & 0x1f) << 8;
 
 	/* we have the 6 bits of luma information along with 5 bits per color component */
 	/* now build and index into the master color lookup table and extract the raw RGB values */
@@ -98,10 +98,10 @@ void MODEL2_FUNC_NAME(int32_t scanline, const extent_t& extent, const m2_poly_ex
 	tr = pal5bit((color >> 0) & 0x1f); //colortable_r[(luma)] & 0xff;
 	tg = pal5bit((color >> 5) & 0x1f); //colortable_g[(luma)] & 0xff;
 	tb = pal5bit((color >> 10) & 0x1f); //colortable_b[(luma)] & 0xff;
-//	tr = gamma_value[tr];
-//	tg = gamma_value[tg];
-//	tb = gamma_value[tb];
-	
+//  tr = gamma_value[tr];
+//  tg = gamma_value[tg];
+//  tb = gamma_value[tb];
+
 	/* build the final color */
 	color = rgb_t(tr, tg, tb);
 
@@ -120,25 +120,25 @@ void MODEL2_FUNC_NAME(int32_t scanline, const extent_t& extent, const m2_poly_ex
 {
 	model2_state *state = object.state;
 	bitmap_rgb32 *destmap = (bitmap_rgb32 *)&m_destmap;
-	uint32_t *p = &destmap->pix32(scanline);
+	u32 *p = &destmap->pix32(scanline);
 
-	uint32_t  tex_width = object.texwidth;
-	uint32_t  tex_height = object.texheight;
+	u32  tex_width = object.texwidth;
+	u32  tex_height = object.texheight;
 
 	/* extract color information */
-	const uint16_t *colortable_r = &state->m_colorxlat[0x0000/2];
-	const uint16_t *colortable_g = &state->m_colorxlat[0x4000/2];
-	const uint16_t *colortable_b = &state->m_colorxlat[0x8000/2];
-	const uint16_t *lumaram = &state->m_lumaram[0];
-	uint32_t  colorbase = object.colorbase;
-	uint32_t  lumabase = object.lumabase;
-	uint32_t  tex_x = object.texx;
-	uint32_t  tex_y = object.texy;
-	uint32_t  tex_x_mask, tex_y_mask;
-	uint32_t  tex_mirr_x = object.texmirrorx;
-	uint32_t  tex_mirr_y = object.texmirrory;
-	uint32_t *sheet = object.texsheet;
-	uint8_t  *gamma_value = &state->m_gamma_table[0];
+	const u16 *colortable_r = &state->m_colorxlat[0x0000/2];
+	const u16 *colortable_g = &state->m_colorxlat[0x4000/2];
+	const u16 *colortable_b = &state->m_colorxlat[0x8000/2];
+	const u16 *lumaram = &state->m_lumaram[0];
+	u32  colorbase = object.colorbase;
+	u32  lumabase = object.lumabase;
+	u32  tex_x = object.texx;
+	u32  tex_y = object.texy;
+	u32  tex_x_mask, tex_y_mask;
+	u32  tex_mirr_x = object.texmirrorx;
+	u32  tex_mirr_y = object.texmirrory;
+	u32 *sheet = object.texsheet;
+	u8  *gamma_value = &state->m_gamma_table[0];
 	float ooz = extent.param[0].start;
 	float uoz = extent.param[1].start;
 	float voz = extent.param[2].start;
@@ -162,8 +162,8 @@ void MODEL2_FUNC_NAME(int32_t scanline, const extent_t& extent, const m2_poly_ex
 		int32_t u = uoz * z;
 		int32_t v = voz * z;
 		int  tr, tg, tb;
-		uint16_t  t;
-		uint8_t luma;
+		u16  t;
+		u8 luma;
 		int u2;
 		int v2;
 

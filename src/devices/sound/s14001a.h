@@ -8,26 +8,19 @@
 #ifndef MAME_SOUND_S14001A_H
 #define MAME_SOUND_S14001A_H
 
-#define MCFG_S14001A_BSY_HANDLER(_devcb) \
-	devcb = &downcast<s14001a_device &>(*device).set_bsy_handler(DEVCB_##_devcb);
-
-#define MCFG_S14001A_EXT_READ_HANDLER(_devcb) \
-	devcb = &downcast<s14001a_device &>(*device).set_ext_read_handler(DEVCB_##_devcb);
-
-
 class s14001a_device : public device_t, public device_sound_interface
 {
 public:
 	s14001a_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
 
 	// configuration helpers
-	template <class Object> devcb_base &set_bsy_handler(Object &&cb) { return m_bsy_handler.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_ext_read_handler(Object &&cb) { return m_ext_read_handler.set_callback(std::forward<Object>(cb)); }
+	auto bsy() { return m_bsy_handler.bind(); }
+	auto ext_read() { return m_ext_read_handler.bind(); }
 
-	DECLARE_READ_LINE_MEMBER(busy_r);   // /BUSY (pin 40)
-	DECLARE_READ_LINE_MEMBER(romen_r);  // ROM /EN (pin 9)
-	DECLARE_WRITE_LINE_MEMBER(start_w); // START (pin 10)
-	DECLARE_WRITE8_MEMBER(data_w);      // 6-bit word
+	int busy_r();              // /BUSY (pin 40)
+	int romen_r();             // ROM /EN (pin 9)
+	void start_w(int state);   // START (pin 10)
+	void data_w(uint8_t data); // 6-bit word
 
 	void set_clock(uint32_t clock);       // set new CLK frequency
 	void set_clock(const XTAL &xtal) { set_clock(xtal.value()); }

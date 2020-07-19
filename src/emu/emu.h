@@ -19,6 +19,7 @@
 #define __EMU_H__
 
 #include <list>
+#include <forward_list>
 #include <vector>
 #include <memory>
 #include <map>
@@ -49,11 +50,10 @@
 
 // memory and address spaces
 #include "emumem.h"
-class address_map; // Forward declaration
 #include "memarray.h"
 
 // machine-wide utilities
-#include "romload.h"
+#include "romentry.h"
 #include "save.h"
 
 // I/O
@@ -67,18 +67,14 @@ class address_map; // Forward declaration
 #include "addrmap.h" // Needs optional_device<> and required_device<>
 #include "distate.h"
 #include "dimemory.h"
-#include "dirom.h"
-#include "diexec.h"
 #include "opresolv.h"
 #include "dipalette.h"
 #include "digfx.h"
 #include "diimage.h"
-#include "diserial.h"
 #include "dislot.h"
 #include "disound.h"
 #include "divideo.h"
 #include "dinvram.h"
-#include "didisasm.h"
 #include "schedule.h"
 #include "dinetwork.h"
 
@@ -87,18 +83,17 @@ class address_map; // Forward declaration
 #include "gamedrv.h"
 #include "parameters.h"
 
-// timers, CPU and scheduling
-#include "devcpu.h"
-
 // the running machine
 #include "main.h"
 #include "machine.h"
 #include "driver.h"
 
+// common device interfaces
+#include "diexec.h"
+#include "devcpu.h"
+
 // video-related
 #include "drawgfx.h"
-#include "emupal.h"
-#include "tilemap.h"
 #include "video.h"
 
 // sound-related
@@ -112,4 +107,4 @@ class address_map; // Forward declaration
 // member templates that don't like incomplete types
 #include "device.ipp"
 
-#endif  /* __EMU_H__ */
+#endif // __EMU_H__

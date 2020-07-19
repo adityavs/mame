@@ -19,7 +19,8 @@ The asp ctc needs at least 2 triggers. The purpose of the zve pio is unknown.
 
 #include "emu.h"
 #include "cpu/z80/z80.h"
-#include "cpu/z80/z80daisy.h"
+#include "machine/z80daisy.h"
+#include "emupal.h"
 #include "screen.h"
 #include "machine/clock.h"
 #include "bus/rs232/rs232.h"
@@ -33,65 +34,69 @@ class mc8030_state : public driver_device
 public:
 	mc8030_state(const machine_config &mconfig, device_type type, const char *tag)
 		: driver_device(mconfig, type, tag)
-		, m_p_videoram(*this, "vram")
 		, m_maincpu(*this, "maincpu")
-		{ }
-
-	DECLARE_WRITE8_MEMBER(zve_write_protect_w);
-	DECLARE_WRITE8_MEMBER(vis_w);
-	DECLARE_WRITE8_MEMBER(eprom_prog_w);
-	DECLARE_READ8_MEMBER(zve_port_a_r);
-	DECLARE_READ8_MEMBER(zve_port_b_r);
-	DECLARE_WRITE8_MEMBER(zve_port_a_w);
-	DECLARE_WRITE8_MEMBER(zve_port_b_w);
-	DECLARE_READ8_MEMBER(asp_port_a_r);
-	DECLARE_READ8_MEMBER(asp_port_b_r);
-	DECLARE_WRITE8_MEMBER(asp_port_a_w);
-	DECLARE_WRITE8_MEMBER(asp_port_b_w);
-	uint32_t screen_update_mc8030(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
+	{ }
 
 	void mc8030(machine_config &config);
+
+private:
+	void zve_write_protect_w(uint8_t data);
+	void vis_w(offs_t offset, uint8_t data);
+	void eprom_prog_w(uint8_t data);
+	uint8_t zve_port_a_r();
+	uint8_t zve_port_b_r();
+	void zve_port_a_w(uint8_t data);
+	void zve_port_b_w(uint8_t data);
+	uint8_t asp_port_a_r();
+	uint8_t asp_port_b_r();
+	void asp_port_a_w(uint8_t data);
+	void asp_port_b_w(uint8_t data);
+	void machine_start() override;
+	uint32_t screen_update_mc8030(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
+
 	void io_map(address_map &map);
 	void mem_map(address_map &map);
-private:
-	required_region_ptr<u8> m_p_videoram;
-	required_device<cpu_device> m_maincpu;
+
+	std::unique_ptr<u8[]> m_vram;
+	required_device<z80_device> m_maincpu;
 };
 
 
-ADDRESS_MAP_START(mc8030_state::mem_map)
-	ADDRESS_MAP_UNMAP_HIGH
+void mc8030_state::mem_map(address_map &map)
+{
+	map.unmap_value_high();
 	//  ZRE 4 * 2KB
-	AM_RANGE(0x0000, 0x1fff) AM_ROM // ZRE ROM's 4 * 2716
-	AM_RANGE(0x2000, 0x27ff) AM_ROM // SPE ROM's 2 * 2708
-	AM_RANGE(0x2800, 0x3fff) AM_ROM // For extension
-	AM_RANGE(0x4000, 0xbfff) AM_RAM // SPE RAM
-	AM_RANGE(0xc000, 0xffff) AM_RAM // ZRE RAM
-ADDRESS_MAP_END
+	map(0x0000, 0x1fff).rom(); // ZRE ROM's 4 * 2716
+	map(0x2000, 0x27ff).rom(); // SPE ROM's 2 * 2708
+	map(0x2800, 0x3fff).rom(); // For extension
+	map(0x4000, 0xbfff).ram(); // SPE RAM
+	map(0xc000, 0xffff).ram(); // ZRE RAM
+}
 
-ADDRESS_MAP_START(mc8030_state::io_map)
-	ADDRESS_MAP_UNMAP_HIGH
-	AM_RANGE(0x30, 0x3f) AM_MIRROR(0xff00) AM_NOP //"mass storage"
-	AM_RANGE(0x80, 0x83) AM_MIRROR(0xff00) AM_DEVREADWRITE("zve_ctc", z80ctc_device, read, write) // user CTC
-	AM_RANGE(0x84, 0x87) AM_MIRROR(0xff00) AM_DEVREADWRITE("zve_pio", z80pio_device, read, write) // PIO unknown usage
-	AM_RANGE(0x88, 0x8f) AM_MIRROR(0xff00) AM_WRITE(zve_write_protect_w)
-	AM_RANGE(0xc0, 0xcf) AM_SELECT(0xff00) AM_WRITE(vis_w)
-	AM_RANGE(0xd0, 0xd3) AM_MIRROR(0xff00) AM_DEVREADWRITE("asp_sio", z80sio_device, ba_cd_r, ba_cd_w) // keyboard & IFSS?
-	AM_RANGE(0xd4, 0xd7) AM_MIRROR(0xff00) AM_DEVREADWRITE("asp_ctc", z80ctc_device, read, write) // sio bauds, KMBG? and kbd
-	AM_RANGE(0xd8, 0xdb) AM_MIRROR(0xff00) AM_DEVREADWRITE("asp_pio", z80pio_device, read, write) // external bus
-	AM_RANGE(0xe0, 0xef) AM_MIRROR(0xff00) AM_WRITE(eprom_prog_w)
-ADDRESS_MAP_END
+void mc8030_state::io_map(address_map &map)
+{
+	map.unmap_value_high();
+	map(0x30, 0x3f).mirror(0xff00).noprw(); //"mass storage"
+	map(0x80, 0x83).mirror(0xff00).rw("zve_ctc", FUNC(z80ctc_device::read), FUNC(z80ctc_device::write)); // user CTC
+	map(0x84, 0x87).mirror(0xff00).rw("zve_pio", FUNC(z80pio_device::read), FUNC(z80pio_device::write)); // PIO unknown usage
+	map(0x88, 0x8f).mirror(0xff00).w(FUNC(mc8030_state::zve_write_protect_w));
+	map(0xc0, 0xcf).select(0xff00).w(FUNC(mc8030_state::vis_w));
+	map(0xd0, 0xd3).mirror(0xff00).rw("asp_sio", FUNC(z80sio_device::ba_cd_r), FUNC(z80sio_device::ba_cd_w)); // keyboard & IFSS?
+	map(0xd4, 0xd7).mirror(0xff00).rw("asp_ctc", FUNC(z80ctc_device::read), FUNC(z80ctc_device::write)); // sio bauds, KMBG? and kbd
+	map(0xd8, 0xdb).mirror(0xff00).rw("asp_pio", FUNC(z80pio_device::read), FUNC(z80pio_device::write)); // external bus
+	map(0xe0, 0xef).mirror(0xff00).w(FUNC(mc8030_state::eprom_prog_w));
+}
 
 /* Input ports */
 static INPUT_PORTS_START( mc8030 )
 INPUT_PORTS_END
 
 
-WRITE8_MEMBER( mc8030_state::zve_write_protect_w )
+void  mc8030_state::zve_write_protect_w(uint8_t data)
 {
 }
 
-WRITE8_MEMBER( mc8030_state::vis_w )
+void mc8030_state::vis_w(offs_t offset, uint8_t data)
 {
 	// reg C
 	// 7 6 5 4 -- module
@@ -106,33 +111,33 @@ WRITE8_MEMBER( mc8030_state::vis_w )
 	// reg B
 	//
 	uint16_t addr = ((offset & 0xff00) >> 2) | ((offset & 0x08) << 2) | (data >> 3);
-	u8 c = 1 << (data & 7);
+	uint8_t c = 1 << (data & 7);
 	if (BIT(offset, 0))
-		m_p_videoram[addr] |= c;
+		m_vram[addr] |= c;
 	else
-		m_p_videoram[addr] &= ~c;
+		m_vram[addr] &= ~c;
 }
 
-WRITE8_MEMBER( mc8030_state::eprom_prog_w )
+void mc8030_state::eprom_prog_w(uint8_t data)
 {
 }
 
-READ8_MEMBER( mc8030_state::zve_port_a_r )
-{
-	return 0xff;
-}
-
-READ8_MEMBER( mc8030_state::zve_port_b_r )
+uint8_t mc8030_state::zve_port_a_r()
 {
 	return 0xff;
 }
 
-READ8_MEMBER( mc8030_state::asp_port_a_r )
+uint8_t mc8030_state::zve_port_b_r()
 {
 	return 0xff;
 }
 
-READ8_MEMBER( mc8030_state::asp_port_b_r )
+uint8_t mc8030_state::asp_port_a_r()
+{
+	return 0xff;
+}
+
+uint8_t mc8030_state::asp_port_b_r()
 {
 	return 0xff;
 }
@@ -149,7 +154,7 @@ uint32_t mc8030_state::screen_update_mc8030(screen_device &screen, bitmap_ind16 
 		{
 			for (x = ma; x < ma + 64; x++)
 			{
-				gfx = m_p_videoram[x^0x3fff];
+				gfx = m_vram[x^0x3fff];
 
 				/* Display a scanline of a character */
 				*p++ = BIT(gfx, 7);
@@ -178,77 +183,80 @@ static const z80_daisy_config daisy_chain[] =
 	{ nullptr }
 };
 
+void mc8030_state::machine_start()
+{
+	m_vram = make_unique_clear<u8[]>(0x4000);
+	save_pointer(NAME(m_vram), 0x4000);
+}
 
-MACHINE_CONFIG_START(mc8030_state::mc8030)
+void mc8030_state::mc8030(machine_config &config)
+{
 	/* basic machine hardware */
-	MCFG_CPU_ADD("maincpu",Z80, XTAL(2'457'600))
-	MCFG_CPU_PROGRAM_MAP(mem_map)
-	MCFG_CPU_IO_MAP(io_map)
-	MCFG_Z80_DAISY_CHAIN(daisy_chain)
+	Z80(config, m_maincpu, XTAL(2'457'600));
+	m_maincpu->set_addrmap(AS_PROGRAM, &mc8030_state::mem_map);
+	m_maincpu->set_addrmap(AS_IO, &mc8030_state::io_map);
+	m_maincpu->set_daisy_config(daisy_chain);
 
 	/* video hardware */
-	MCFG_SCREEN_ADD("screen", RASTER)
-	MCFG_SCREEN_REFRESH_RATE(50)
-	MCFG_SCREEN_VBLANK_TIME(ATTOSECONDS_IN_USEC(2500)) /* not accurate */
-	MCFG_SCREEN_SIZE(512, 256)
-	MCFG_SCREEN_VISIBLE_AREA(0, 512-1, 0, 256-1)
-	MCFG_SCREEN_UPDATE_DRIVER(mc8030_state, screen_update_mc8030)
-	MCFG_SCREEN_PALETTE("palette")
+	screen_device &screen(SCREEN(config, "screen", SCREEN_TYPE_RASTER));
+	screen.set_refresh_hz(50);
+	screen.set_vblank_time(ATTOSECONDS_IN_USEC(2500)); /* not accurate */
+	screen.set_size(512, 256);
+	screen.set_visarea(0, 512-1, 0, 256-1);
+	screen.set_screen_update(FUNC(mc8030_state::screen_update_mc8030));
+	screen.set_palette("palette");
 
-	MCFG_PALETTE_ADD_MONOCHROME("palette")
+	PALETTE(config, "palette", palette_device::MONOCHROME);
 
 	/* Devices */
-	MCFG_DEVICE_ADD("zve_pio", Z80PIO, XTAL(2'457'600))
-	MCFG_Z80PIO_OUT_INT_CB(INPUTLINE("maincpu", INPUT_LINE_IRQ0))
-	MCFG_Z80PIO_IN_PA_CB(READ8(mc8030_state, zve_port_a_r))
-	//MCFG_Z80PIO_OUT_PA_CB(WRITE8(mc8030_state, zve_port_a_w))
-	MCFG_Z80PIO_IN_PB_CB(READ8(mc8030_state, zve_port_b_r))
-	//MCFG_Z80PIO_OUT_PB_CB(WRITE8(mc8030_state, zve_port_b_w))
+	z80pio_device& zve_pio(Z80PIO(config, "zve_pio", XTAL(2'457'600)));
+	zve_pio.out_int_callback().set_inputline(m_maincpu, INPUT_LINE_IRQ0);
+	zve_pio.in_pa_callback().set(FUNC(mc8030_state::zve_port_a_r));
+	//zve_pio.out_pa_callback().set(FUNC(mc8030_state::zve_port_a_w));
+	zve_pio.in_pb_callback().set(FUNC(mc8030_state::zve_port_b_r));
+	//zve_pio.out_pb_callback().set(FUNC(mc8030_state::zve_port_b_w));
 
-	MCFG_DEVICE_ADD("zve_ctc", Z80CTC, XTAL(2'457'600))
-	MCFG_Z80CTC_INTR_CB(INPUTLINE("maincpu", INPUT_LINE_IRQ0))
+	z80ctc_device& zve_ctc(Z80CTC(config, "zve_ctc", XTAL(2'457'600)));
+	zve_ctc.intr_callback().set_inputline(m_maincpu, INPUT_LINE_IRQ0);
 	// ZC0, ZC1, ZC2 for user
 
-	MCFG_DEVICE_ADD("asp_pio", Z80PIO, XTAL(2'457'600))
-	MCFG_Z80PIO_OUT_INT_CB(INPUTLINE("maincpu", INPUT_LINE_IRQ0))
-	MCFG_Z80PIO_IN_PA_CB(READ8(mc8030_state, asp_port_a_r))
-	//MCFG_Z80PIO_OUT_PA_CB(WRITE8(mc8030_state, asp_port_a_w))
-	MCFG_Z80PIO_IN_PB_CB(READ8(mc8030_state, asp_port_b_r))
-	//MCFG_Z80PIO_OUT_PB_CB(WRITE8(mc8030_state, asp_port_b_w))
+	z80pio_device& asp_pio(Z80PIO(config, "asp_pio", XTAL(2'457'600)));
+	asp_pio.out_int_callback().set_inputline(m_maincpu, INPUT_LINE_IRQ0);
+	asp_pio.in_pa_callback().set(FUNC(mc8030_state::asp_port_a_r));
+	//asp_pio.out_pa_callback().set(FUNC(mc8030_state::asp_port_a_w));
+	asp_pio.in_pb_callback().set(FUNC(mc8030_state::asp_port_b_r));
+	//asp_pio.out_pb_callback().set(FUNC(mc8030_state::asp_port_b_w));
 
-	MCFG_DEVICE_ADD("asp_ctc", Z80CTC, XTAL(2'457'600))
-	MCFG_Z80CTC_INTR_CB(INPUTLINE("maincpu", INPUT_LINE_IRQ0))
+	z80ctc_device& asp_ctc(Z80CTC(config, "asp_ctc", XTAL(2'457'600)));
+	asp_ctc.intr_callback().set_inputline(m_maincpu, INPUT_LINE_IRQ0);
 	// ZC0: to SIO CLK CH A
 	// ZC1: to SIO CLK CH B
 	// ZC2: KMBG (??)
 
-	MCFG_DEVICE_ADD("uart_clock", CLOCK, 153600)
-	MCFG_CLOCK_SIGNAL_HANDLER(DEVWRITELINE("asp_sio", z80sio_device, txca_w))
-	MCFG_DEVCB_CHAIN_OUTPUT(DEVWRITELINE("asp_sio", z80sio_device, rxca_w))
+	clock_device &uart_clock(CLOCK(config, "uart_clock", 153600));
+	uart_clock.signal_handler().set("asp_sio", FUNC(z80sio_device::txca_w));
+	uart_clock.signal_handler().append("asp_sio", FUNC(z80sio_device::rxca_w));
 
-	MCFG_DEVICE_ADD("asp_sio", Z80SIO, 4800)
-	MCFG_Z80SIO_OUT_INT_CB(INPUTLINE("maincpu", INPUT_LINE_IRQ0))
+	z80sio_device& sio(Z80SIO(config, "asp_sio", 4800));
 	// SIO CH A in = keyboard; out = beeper; CH B = IFSS (??)
-	MCFG_Z80SIO_OUT_TXDA_CB(DEVWRITELINE("rs232", rs232_port_device, write_txd))
-	MCFG_Z80SIO_OUT_DTRA_CB(DEVWRITELINE("rs232", rs232_port_device, write_dtr))
-	MCFG_Z80SIO_OUT_RTSA_CB(DEVWRITELINE("rs232", rs232_port_device, write_rts))
+	sio.out_txda_callback().set("rs232", FUNC(rs232_port_device::write_txd));
+	sio.out_dtra_callback().set("rs232", FUNC(rs232_port_device::write_dtr));
+	sio.out_rtsa_callback().set("rs232", FUNC(rs232_port_device::write_rts));
 
-	MCFG_RS232_PORT_ADD("rs232", default_rs232_devices, "keyboard")
-	MCFG_RS232_RXD_HANDLER(DEVWRITELINE("asp_sio", z80sio_device, rxa_w))
-	MCFG_RS232_CTS_HANDLER(DEVWRITELINE("asp_sio", z80sio_device, ctsa_w))
-MACHINE_CONFIG_END
+	rs232_port_device &rs232(RS232_PORT(config, "rs232", default_rs232_devices, "keyboard"));
+	rs232.rxd_handler().set("asp_sio", FUNC(z80sio_device::rxa_w));
+	rs232.cts_handler().set("asp_sio", FUNC(z80sio_device::ctsa_w));
+}
 
 /* ROM definition */
 ROM_START( mc8030 )
-	ROM_REGION( 0x10000, "maincpu", ROMREGION_ERASEFF )
+	ROM_REGION( 0x4000, "maincpu", ROMREGION_ERASEFF )
 	ROM_LOAD( "zve_1.rom", 0x0000, 0x0800, CRC(31ec0159) SHA1(a97ea9eb733c462e77d625a7942134e45d911c0a))
 	ROM_LOAD( "zve_2.rom", 0x0800, 0x0800, CRC(5104983d) SHA1(7516274904042f4fc6813aa8b2a75c0a64f9b937))
 	ROM_LOAD( "zve_3.rom", 0x1000, 0x0800, CRC(4bcfd727) SHA1(d296e587098e70270ad60db8edaa685af368b849))
 	ROM_LOAD( "zve_4.rom", 0x1800, 0x0800, CRC(f949ae43) SHA1(68c324cf5578497db7ae65da5695fcb30493f612))
 	ROM_LOAD( "spe_1.rom", 0x2000, 0x0400, CRC(826f609c) SHA1(e77ff6c180f5a6d7756d076173ae264a0e26f066))
 	ROM_LOAD( "spe_2.rom", 0x2400, 0x0400, CRC(98320040) SHA1(6baf87e196f1ccdf44912deafa6042becbfb0679))
-
-	ROM_REGION( 0x4000, "vram", ROMREGION_ERASE00 )
 
 	ROM_REGION( 0x4000, "user1", 0 )
 	// marked as "80.3x"
@@ -287,5 +295,5 @@ ROM_END
 
 /* Driver */
 
-//    YEAR  NAME    PARENT  COMPAT   MACHINE    INPUT   STATE       INIT    COMPANY                FULLNAME       FLAGS
-COMP( 198?, mc8030, 0,      0,       mc8030,    mc8030, mc8030_state, 0,    "VEB Elektronik Gera", "MC-80.30/31", MACHINE_NOT_WORKING | MACHINE_NO_SOUND | ORIENTATION_FLIP_X )
+//    YEAR  NAME    PARENT  COMPAT  MACHINE  INPUT   CLASS         INIT        COMPANY                FULLNAME       FLAGS
+COMP( 198?, mc8030, 0,      0,      mc8030,  mc8030, mc8030_state, empty_init, "VEB Elektronik Gera", "MC-80.30/31", MACHINE_NOT_WORKING | MACHINE_NO_SOUND | ORIENTATION_FLIP_X | MACHINE_SUPPORTS_SAVE )

@@ -13,22 +13,6 @@
 /* usually 640000 for 8000 Hz sample rate or */
 /* usually 800000 for 10000 Hz sample rate.  */
 
-#define MCFG_TMS5110_M0_CB(_devcb) \
-	devcb = &downcast<tms5110_device &>(*device).set_m0_callback(DEVCB_##_devcb);
-
-#define MCFG_TMS5110_M1_CB(_devcb) \
-	devcb = &downcast<tms5110_device &>(*device).set_m1_callback(DEVCB_##_devcb);
-
-#define MCFG_TMS5110_ADDR_CB(_devcb) \
-	devcb = &downcast<tms5110_device &>(*device).set_addr_callback(DEVCB_##_devcb);
-
-#define MCFG_TMS5110_DATA_CB(_devcb) \
-	devcb = &downcast<tms5110_device &>(*device).set_data_callback(DEVCB_##_devcb);
-
-#define MCFG_TMS5110_ROMCLK_CB(_devcb) \
-	devcb = &downcast<tms5110_device &>(*device).set_romclk_callback(DEVCB_##_devcb);
-
-
 class tms5110_device : public device_t, public device_sound_interface
 {
 public:
@@ -51,19 +35,19 @@ public:
 
 	tms5110_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
 
-	template <class Object> devcb_base &set_m0_callback(Object &&cb) { return m_m0_cb.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_m1_callback(Object &&cb) { return m_m1_cb.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_addr_callback(Object &&cb) { return m_addr_cb.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_data_callback(Object &&cb) { return m_data_cb.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_romclk_callback(Object &&cb) { return m_romclk_cb.set_callback(std::forward<Object>(cb)); }
+	auto m0() { return m_m0_cb.bind(); }
+	auto m1() { return m_m1_cb.bind(); }
+	auto addr() { return m_addr_cb.bind(); }
+	auto data() { return m_data_cb.bind(); }
+	auto romclk() { return m_romclk_cb.bind(); }
 
-	DECLARE_WRITE8_MEMBER( ctl_w );
-	DECLARE_READ8_MEMBER( ctl_r );
-	DECLARE_WRITE_LINE_MEMBER( pdc_w );
+	void ctl_w(uint8_t data);
+	uint8_t ctl_r();
+	void pdc_w(int state);
 
-	// this is only used by cvs.c
+	// this is only used by cvs.cpp
 	// it is not related at all to the speech generation and conflicts with the new ROM controller interface.
-	DECLARE_READ_LINE_MEMBER( romclk_hack_r );
+	int romclk_hack_r();
 
 protected:
 	tms5110_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, uint32_t clock, int variant);
@@ -254,7 +238,7 @@ class m58817_device : public tms5110_device
 public:
 	m58817_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
 
-	DECLARE_READ8_MEMBER( status_r );
+	uint8_t status_r();
 };
 
 
@@ -286,16 +270,16 @@ public:
 	void set_ctl8_bit(uint8_t ctl8_bit) { m_ctl8_bit = ctl8_bit; }
 	void set_reset_bit(uint8_t reset_bit) { m_reset_bit = reset_bit; }
 	void set_stop_bit(uint8_t stop_bit) { m_stop_bit = stop_bit; }
-	template<class Object> devcb_base &set_pdc_callback(Object object) { return m_pdc_cb.set_callback(std::forward<Object>(object)); }
-	template<class Object> devcb_base &set_ctl_callback(Object object) { return m_ctl_cb.set_callback(std::forward<Object>(object)); }
+	auto pdc() { return m_pdc_cb.bind(); }
+	auto ctl() { return m_ctl_cb.bind(); }
 
-	DECLARE_WRITE_LINE_MEMBER( m0_w );
-	DECLARE_READ_LINE_MEMBER( data_r );
+	void m0_w(int state);
+	int data_r();
 
 	/* offset is rom # */
-	DECLARE_WRITE8_MEMBER( rom_csq_w );
-	DECLARE_WRITE8_MEMBER( bit_w );
-	DECLARE_WRITE_LINE_MEMBER( enable_w );
+	void rom_csq_w(offs_t offset, uint8_t data);
+	void bit_w(uint8_t data);
+	void enable_w(int state);
 
 protected:
 	// device-level overrides
@@ -336,38 +320,5 @@ private:
 };
 
 DECLARE_DEVICE_TYPE(TMSPROM, tmsprom_device)
-
-#define MCFG_TMSPROM_REGION(_region) \
-	downcast<tmsprom_device &>(*device).set_region("^" _region);
-
-#define MCFG_TMSPROM_ROM_SIZE(_size) \
-	downcast<tmsprom_device &>(*device).set_rom_size(_size);
-
-#define MCFG_TMSPROM_PDC_BIT(_bit) \
-	downcast<tmsprom_device &>(*device).set_pdc_bit(_bit);
-
-#define MCFG_TMSPROM_CTL1_BIT(_bit) \
-	downcast<tmsprom_device &>(*device).set_ctl1_bit(_bit);
-
-#define MCFG_TMSPROM_CTL2_BIT(_bit) \
-	downcast<tmsprom_device &>(*device).set_ctl2_bit(_bit);
-
-#define MCFG_TMSPROM_CTL4_BIT(_bit) \
-	downcast<tmsprom_device &>(*device).set_ctl4_bit(_bit);
-
-#define MCFG_TMSPROM_CTL8_BIT(_bit) \
-	downcast<tmsprom_device &>(*device).set_ctl8_bit(_bit);
-
-#define MCFG_TMSPROM_RESET_BIT(_bit) \
-	downcast<tmsprom_device &>(*device).set_reset_bit(_bit);
-
-#define MCFG_TMSPROM_STOP_BIT(_bit) \
-	downcast<tmsprom_device &>(*device).set_stop_bit(_bit);
-
-#define MCFG_TMSPROM_PDC_CB(_devcb) \
-	devcb = &downcast<tmsprom_device &>(*device).set_pdc_callback(DEVCB_##_devcb);
-
-#define MCFG_TMSPROM_CTL_CB(_devcb) \
-	devcb = &downcast<tmsprom_device &>(*device).set_ctl_callback(DEVCB_##_devcb);
 
 #endif // MAME_SOUND_TMS5110_H

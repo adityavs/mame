@@ -1,5 +1,6 @@
 // license:BSD-3-Clause
-// copyright-holders:S. Smith,David Haywood,Fabio Priuli
+// copyright-holders:S. Smith,David Haywood,Fabio Priuli, Razoola, Mr.K
+// thanks to Razoola and Mr K for the decode and banking information
 
 #include "emu.h"
 #include "prot_sma.h"
@@ -32,7 +33,7 @@ void sma_prot_device::device_reset()
 
 // temporarily replaced by the get_bank_base functions below, until we clean up bankswitch implementation
 #if 0
-WRITE16_MEMBER( sma_prot_device::kof99_bankswitch_w )
+void sma_prot_device::kof99_bankswitch_w(uint16_t data)
 {
 	int bankaddress;
 	static const int bankoffset[64] =
@@ -62,9 +63,8 @@ WRITE16_MEMBER( sma_prot_device::kof99_bankswitch_w )
 }
 
 
-WRITE16_MEMBER( sma_prot_device::garou_bankswitch_w )
+void sma_prot_device::garou_bankswitch_w(uint16_t data)
 {
-	// thanks to Razoola and Mr K for the info
 	int bankaddress;
 	static const int bankoffset[64] =
 	{
@@ -98,9 +98,8 @@ WRITE16_MEMBER( sma_prot_device::garou_bankswitch_w )
 }
 
 
-WRITE16_MEMBER( sma_prot_device::garouh_bankswitch_w )
+void sma_prot_device::garouh_bankswitch_w(uint16_t data)
 {
-	// thanks to Razoola and Mr K for the info
 	int bankaddress;
 	static const int bankoffset[64] =
 	{
@@ -136,9 +135,8 @@ WRITE16_MEMBER( sma_prot_device::garouh_bankswitch_w )
 }
 
 
-WRITE16_MEMBER( sma_prot_device::mslug3_bankswitch_w )
+void sma_prot_device::mslug3_bankswitch_w(uint16_t data)
 {
-	// thanks to Razoola and Mr K for the info
 	int bankaddress;
 	static const int bankoffset[64] =
 	{
@@ -171,9 +169,8 @@ WRITE16_MEMBER( sma_prot_device::mslug3_bankswitch_w )
 }
 
 
-WRITE16_MEMBER( sma_prot_device::kof2000_bankswitch_w )
+void sma_prot_device::kof2000_bankswitch_w(uint16_t data)
 {
-	// thanks to Razoola and Mr K for the info
 	int bankaddress;
 	static const int bankoffset[64] =
 	{
@@ -232,7 +229,6 @@ uint32_t sma_prot_device::kof99_bank_base(uint16_t sel)
 
 uint32_t sma_prot_device::garou_bank_base(uint16_t sel)
 {
-	// thanks to Razoola and Mr K for the info
 	static const int bankoffset[64] =
 	{
 		0x000000, 0x100000, 0x200000, 0x300000, // 00
@@ -266,7 +262,6 @@ uint32_t sma_prot_device::garou_bank_base(uint16_t sel)
 
 uint32_t sma_prot_device::garouh_bank_base(uint16_t sel)
 {
-	// thanks to Razoola and Mr K for the info
 	static const int bankoffset[64] =
 	{
 		0x000000, 0x100000, 0x200000, 0x300000, // 00
@@ -302,7 +297,6 @@ uint32_t sma_prot_device::garouh_bank_base(uint16_t sel)
 
 uint32_t sma_prot_device::mslug3_bank_base(uint16_t sel)
 {
-	// thanks to Razoola and Mr K for the info
 	static const int bankoffset[64] =
 	{
 		0x000000, 0x020000, 0x040000, 0x060000, // 00
@@ -333,9 +327,40 @@ uint32_t sma_prot_device::mslug3_bank_base(uint16_t sel)
 	return bankaddress;
 }
 
+uint32_t sma_prot_device::mslug3a_bank_base(uint16_t sel)
+{
+	static const int bankoffset[64] =
+	{
+		0x000000, 0x030000, 0x040000, 0x070000, // 00
+		0x080000, 0x0a0000, 0x0c0000, 0x0e0000, // 04
+		0x0f0000, 0x100000, 0x130000, 0x140000, // 08
+		0x150000, 0x160000, 0x190000, 0x1a0000, // 12
+		0x1B0000, 0x1C0000, 0x1F0000, 0x200000, // 16
+		0x210000, 0x220000, 0x250000, 0x260000, // 20
+		0x270000, 0x280000, 0x2B0000, 0x2C0000, // 24
+		0x2D0000, 0x2E0000, 0x310000, 0x320000, // 28
+		0x330000, 0x340000, 0x370000, 0x380000, // 32
+		0x390000, 0x3A0000, 0x3D0000, 0x3E0000, // 36
+		0x400000, 0x410000, 0x440000, 0x450000, // 40
+		0x460000, 0x470000, 0x4A0000, 0x4B0000, // 44
+		0x4C0000, /* rest not used? */
+	};
+
+	// unscramble bank number
+	int data =
+	   (BIT(sel, 15) << 0)+
+	   (BIT(sel,  3) << 1)+
+	   (BIT(sel,  1) << 2)+
+	   (BIT(sel,  6) << 3)+
+	   (BIT(sel, 12) << 4)+
+	   (BIT(sel, 11) << 5);
+
+	int bankaddress = 0x100000 + bankoffset[data];
+	return bankaddress;
+}
+
 uint32_t sma_prot_device::kof2000_bank_base(uint16_t sel)
 {
-	// thanks to Razoola and Mr K for the info
 	static const int bankoffset[64] =
 	{
 		0x000000, 0x100000, 0x200000, 0x300000, // 00
@@ -364,7 +389,7 @@ uint32_t sma_prot_device::kof2000_bank_base(uint16_t sel)
 
 
 
-READ16_MEMBER( sma_prot_device::prot_9a37_r )
+uint16_t sma_prot_device::prot_9a37_r()
 {
 	return 0x9a37;
 }
@@ -373,7 +398,7 @@ READ16_MEMBER( sma_prot_device::prot_9a37_r )
 /* information about the sma random number generator provided by razoola */
 /* this RNG is correct for KOF99, other games might be different */
 
-READ16_MEMBER( sma_prot_device::random_r )
+uint16_t sma_prot_device::random_r()
 {
 	uint16_t old = m_sma_rng;
 	uint16_t newbit = ((m_sma_rng >> 2) ^
@@ -391,7 +416,7 @@ READ16_MEMBER( sma_prot_device::random_r )
 
 
 
-// kof99, garou, garouh, mslug3 and kof2000 have an SMA chip which contains program code and decrypts the 68k roms
+// kof99, garou, garouh, mslug3, mslug3a and kof2000 have an SMA chip which contains program code and decrypts the 68k roms
 void sma_prot_device::kof99_decrypt_68k(uint8_t* base)
 {
 	uint16_t *rom = (uint16_t *)(base + 0x100000);
@@ -418,7 +443,6 @@ void sma_prot_device::kof99_decrypt_68k(uint8_t* base)
 
 void sma_prot_device::garou_decrypt_68k(uint8_t* base)
 {
-	// thanks to Razoola and Mr K for the info
 	uint16_t *rom = (uint16_t *)(base + 0x100000);
 
 	// swap data lines on the whole ROMs
@@ -444,7 +468,6 @@ void sma_prot_device::garou_decrypt_68k(uint8_t* base)
 
 void sma_prot_device::garouh_decrypt_68k(uint8_t* base)
 {
-	// thanks to Razoola and Mr K for the info
 	uint16_t *rom = (uint16_t *)(base + 0x100000);
 
 	// swap data lines on the whole ROMs
@@ -470,7 +493,6 @@ void sma_prot_device::garouh_decrypt_68k(uint8_t* base)
 
 void sma_prot_device::mslug3_decrypt_68k(uint8_t* base)
 {
-	// thanks to Razoola and Mr K for the info
 	uint16_t *rom = (uint16_t *)(base + 0x100000);
 
 	// swap data lines on the whole ROMs
@@ -493,10 +515,33 @@ void sma_prot_device::mslug3_decrypt_68k(uint8_t* base)
 	}
 }
 
+void sma_prot_device::mslug3a_decrypt_68k(uint8_t* base)
+{
+	uint16_t *rom = (uint16_t *)(base + 0x100000);
+
+	/* swap data lines on the whole ROMs */
+	for (int i = 0;i < 0x800000/2;i++)
+		rom[i] = bitswap<16>(rom[i],2,11,12,14,9,3,1,4,13,7,6,8,10,15,0,5);
+
+	/* swap address lines & relocate fixed part */
+	rom = (uint16_t *)base;
+		for (int i = 0; i < 0x0c0000/2; i++)
+		   rom[i] = rom[0x5d0000/2 + bitswap<24>(i,23,22,21,20,19,18,1,16,14,7,17,5,8,4,15,6,3,2,0,13,10,12,9,11)];
+
+	rom = (uint16_t *)(base + 0x100000);
+	/* swap address lines for the banked part */
+	for (int i = 0;i < 0x800000/2; i += 0x10000/2)
+	{
+		uint16_t buffer[0x10000/2];
+		memcpy(buffer,&rom[i],0x10000);
+		for (int j = 0;j < 0x10000/2;j++)
+			rom[i+j] = buffer[bitswap<24>(j,23,22,21,20,19,18,17,16,15,12,0,11,3,4,13,6,8,14,7,5,2,10,9,1)];
+	}
+}
+
 
 void sma_prot_device::kof2000_decrypt_68k(uint8_t* base)
 {
-	// thanks to Razoola and Mr K for the info
 	uint16_t *rom = (uint16_t *)(base + 0x100000);
 
 	// swap data lines on the whole ROMs

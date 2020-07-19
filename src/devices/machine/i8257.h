@@ -34,96 +34,32 @@
 
 #pragma once
 
-
-
-
-/***************************************************************************
-    DEVICE CONFIGURATION MACROS
-***************************************************************************/
-
-#define MCFG_I8257_OUT_HRQ_CB(_devcb) \
-	devcb = &downcast<i8257_device &>(*device).set_out_hrq_callback(DEVCB_##_devcb);
-
-#define MCFG_I8257_OUT_TC_CB(_devcb) \
-	devcb = &downcast<i8257_device &>(*device).set_out_tc_callback(DEVCB_##_devcb);
-
-#define MCFG_I8257_IN_MEMR_CB(_devcb) \
-	devcb = &downcast<i8257_device &>(*device).set_in_memr_callback(DEVCB_##_devcb);
-
-#define MCFG_I8257_OUT_MEMW_CB(_devcb) \
-	devcb = &downcast<i8257_device &>(*device).set_out_memw_callback(DEVCB_##_devcb);
-
-#define MCFG_I8257_IN_IOR_0_CB(_devcb) \
-	devcb = &downcast<i8257_device &>(*device).set_in_ior_callback<0>(DEVCB_##_devcb);
-
-#define MCFG_I8257_IN_IOR_1_CB(_devcb) \
-	devcb = &downcast<i8257_device &>(*device).set_in_ior_callback<1>(DEVCB_##_devcb);
-
-#define MCFG_I8257_IN_IOR_2_CB(_devcb) \
-	devcb = &downcast<i8257_device &>(*device).set_in_ior_callback<2>(DEVCB_##_devcb);
-
-#define MCFG_I8257_IN_IOR_3_CB(_devcb) \
-	devcb = &downcast<i8257_device &>(*device).set_in_ior_callback<3>(DEVCB_##_devcb);
-
-#define MCFG_I8257_OUT_IOW_0_CB(_devcb) \
-	devcb = &downcast<i8257_device &>(*device).set_out_iow_callback<0>(DEVCB_##_devcb);
-
-#define MCFG_I8257_OUT_IOW_1_CB(_devcb) \
-	devcb = &downcast<i8257_device &>(*device).set_out_iow_callback<1>(DEVCB_##_devcb);
-
-#define MCFG_I8257_OUT_IOW_2_CB(_devcb) \
-	devcb = &downcast<i8257_device &>(*device).set_out_iow_callback<2>(DEVCB_##_devcb);
-
-#define MCFG_I8257_OUT_IOW_3_CB(_devcb) \
-	devcb = &downcast<i8257_device &>(*device).set_out_iow_callback<3>(DEVCB_##_devcb);
-
-#define MCFG_I8257_OUT_DACK_0_CB(_devcb) \
-	devcb = &downcast<i8257_device &>(*device).set_out_dack_callback<0>(DEVCB_##_devcb);
-
-#define MCFG_I8257_OUT_DACK_1_CB(_devcb) \
-	devcb = &downcast<i8257_device &>(*device).set_out_dack_callback<1>(DEVCB_##_devcb);
-
-#define MCFG_I8257_OUT_DACK_2_CB(_devcb) \
-	devcb = &downcast<i8257_device &>(*device).set_out_dack_callback<2>(DEVCB_##_devcb);
-
-#define MCFG_I8257_OUT_DACK_3_CB(_devcb) \
-	devcb = &downcast<i8257_device &>(*device).set_out_dack_callback<3>(DEVCB_##_devcb);
-
-// HACK: the radio86 and alikes require this, is it a bug in the soviet clone or is there something else happening?
-#define MCFG_I8257_REVERSE_RW_MODE(_flag) \
-	downcast<i8257_device &>(*device).set_reverse_rw_mode(_flag);
-
-// ======================> i8257_device
-
-class i8257_device :  public device_t,
-						public device_execute_interface
+class i8257_device : public device_t, public device_execute_interface
 {
 public:
 	// construction/destruction
 	i8257_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
 
-	DECLARE_READ8_MEMBER( read );
-	DECLARE_WRITE8_MEMBER( write );
+	uint8_t read(offs_t offset);
+	void write(offs_t offset, uint8_t data);
 
-	DECLARE_WRITE_LINE_MEMBER( hlda_w );
-	DECLARE_WRITE_LINE_MEMBER( ready_w );
+	void hlda_w(int state);
+	void ready_w(int state);
 
-	DECLARE_WRITE_LINE_MEMBER( dreq0_w );
-	DECLARE_WRITE_LINE_MEMBER( dreq1_w );
-	DECLARE_WRITE_LINE_MEMBER( dreq2_w );
-	DECLARE_WRITE_LINE_MEMBER( dreq3_w );
+	void dreq0_w(int state);
+	void dreq1_w(int state);
+	void dreq2_w(int state);
+	void dreq3_w(int state);
 
-	template <class Object> devcb_base &set_out_hrq_callback(Object &&cb) { return m_out_hrq_cb.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_out_tc_callback(Object &&cb) { return m_out_tc_cb.set_callback(std::forward<Object>(cb)); }
+	auto out_hrq_cb() { return m_out_hrq_cb.bind(); }
+	auto out_tc_cb() { return m_out_tc_cb.bind(); }
+	auto in_memr_cb() { return m_in_memr_cb.bind(); }
+	auto out_memw_cb() { return m_out_memw_cb.bind(); }
+	template <unsigned Ch> auto in_ior_cb() { return m_in_ior_cb[Ch].bind(); }
+	template <unsigned Ch> auto out_iow_cb() { return m_out_iow_cb[Ch].bind(); }
+	template <unsigned Ch> auto out_dack_cb() { return m_out_dack_cb[Ch].bind(); }
 
-	template <class Object> devcb_base &set_in_memr_callback(Object &&cb) { return m_in_memr_cb.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_out_memw_callback(Object &&cb) { return m_out_memw_cb.set_callback(std::forward<Object>(cb)); }
-
-	template <unsigned Ch, class Object> devcb_base &set_in_ior_callback(Object &&cb) { return m_in_ior_cb[Ch].set_callback(std::forward<Object>(cb)); }
-	template <unsigned Ch, class Object> devcb_base &set_out_iow_callback(Object &&cb) { return m_out_iow_cb[Ch].set_callback(std::forward<Object>(cb)); }
-
-	template <unsigned Ch, class Object> devcb_base &set_out_dack_callback(Object &&cb) { return m_out_dack_cb[Ch].set_callback(std::forward<Object>(cb)); }
-
+	// This should be set for systems that map the DMAC registers into the memory space rather than as I/O ports (e.g. radio86)
 	void set_reverse_rw_mode(bool flag) { m_reverse_rw = flag; }
 
 protected:
@@ -162,14 +98,14 @@ private:
 	devcb_write_line   m_out_hrq_cb;
 	devcb_write_line   m_out_tc_cb;
 
-	/* accessors to main memory */
+	// accessors to main memory
 	devcb_read8        m_in_memr_cb;
 	devcb_write8       m_out_memw_cb;
 
-	/* channel accessors */
-	devcb_read8        m_in_ior_cb[4];
-	devcb_write8       m_out_iow_cb[4];
-	devcb_write_line   m_out_dack_cb[4];
+	// channel accessors
+	devcb_read8::array<4> m_in_ior_cb;
+	devcb_write8::array<4> m_out_iow_cb;
+	devcb_write_line::array<4> m_out_dack_cb;
 
 	struct
 	{

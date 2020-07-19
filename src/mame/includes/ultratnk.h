@@ -12,16 +12,13 @@
 
 #include "machine/watchdog.h"
 #include "sound/discrete.h"
+#include "emupal.h"
 #include "screen.h"
+#include "tilemap.h"
 
 class ultratnk_state : public driver_device
 {
 public:
-	enum
-	{
-		TIMER_NMI
-	};
-
 	ultratnk_state(const machine_config &mconfig, device_type type, const char *tag) :
 		driver_device(mconfig, type, tag),
 		m_maincpu(*this, "maincpu"),
@@ -30,33 +27,37 @@ public:
 		m_gfxdecode(*this, "gfxdecode"),
 		m_screen(*this, "screen"),
 		m_palette(*this, "palette"),
-		m_videoram(*this, "videoram")
+		m_videoram(*this, "videoram"),
+		m_joy(*this, "JOY-%c", 'W')
 	{ }
 
-	DECLARE_CUSTOM_INPUT_MEMBER(get_collision);
-	DECLARE_CUSTOM_INPUT_MEMBER(get_joystick);
+	template <int N> DECLARE_READ_LINE_MEMBER(collision_flipflop_r);
+	template <int N> DECLARE_READ_LINE_MEMBER(joystick_r);
 	void ultratnk(machine_config &config);
 
 protected:
-	DECLARE_READ8_MEMBER(wram_r);
-	DECLARE_READ8_MEMBER(analog_r);
-	DECLARE_READ8_MEMBER(coin_r);
-	DECLARE_READ8_MEMBER(collision_r);
-	DECLARE_READ8_MEMBER(options_r);
-	DECLARE_WRITE8_MEMBER(wram_w);
-	DECLARE_WRITE8_MEMBER(collision_reset_w);
-	DECLARE_WRITE8_MEMBER(da_latch_w);
-	DECLARE_WRITE_LINE_MEMBER(led_1_w);
-	DECLARE_WRITE_LINE_MEMBER(led_2_w);
+	enum
+	{
+		TIMER_NMI
+	};
+
+	uint8_t wram_r(offs_t offset);
+	uint8_t analog_r(offs_t offset);
+	uint8_t coin_r(offs_t offset);
+	uint8_t collision_r(offs_t offset);
+	uint8_t options_r(offs_t offset);
+	void wram_w(offs_t offset, uint8_t data);
+	void collision_reset_w(offs_t offset, uint8_t data);
+	void da_latch_w(uint8_t data);
 	DECLARE_WRITE_LINE_MEMBER(lockout_w);
-	DECLARE_WRITE8_MEMBER(video_ram_w);
-	DECLARE_WRITE8_MEMBER(attract_w);
-	DECLARE_WRITE8_MEMBER(explosion_w);
+	void video_ram_w(offs_t offset, uint8_t data);
+	void attract_w(uint8_t data);
+	void explosion_w(uint8_t data);
 
 	virtual void machine_start() override;
 	virtual void machine_reset() override;
 	virtual void video_start() override;
-	DECLARE_PALETTE_INIT(ultratnk);
+	void ultratnk_palette(palette_device &palette) const;
 
 	TILE_GET_INFO_MEMBER(tile_info);
 	uint32_t screen_update(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
@@ -74,6 +75,8 @@ protected:
 	required_device<palette_device> m_palette;
 
 	required_shared_ptr<uint8_t> m_videoram;
+
+	required_ioport_array<4> m_joy;
 
 	int m_da_latch;
 	int m_collision[4];

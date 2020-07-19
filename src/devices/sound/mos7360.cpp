@@ -170,9 +170,11 @@ DEFINE_DEVICE_TYPE(MOS7360, mos7360_device, "mos7360", "MOS 7360 TED")
 
 
 // default address maps
-ADDRESS_MAP_START(mos7360_device::mos7360_videoram_map)
-	AM_RANGE(0x0000, 0xffff) AM_RAM
-ADDRESS_MAP_END
+void mos7360_device::mos7360_videoram_map(address_map &map)
+{
+	if (!has_configured_map(0))
+		map(0x0000, 0xffff).ram();
+}
 
 
 //-------------------------------------------------
@@ -264,7 +266,7 @@ mos7360_device::mos7360_device(const machine_config &mconfig, const char *tag, d
 		device_memory_interface(mconfig, *this),
 		device_sound_interface(mconfig, *this),
 		device_video_interface(mconfig, *this),
-		m_videoram_space_config("videoram", ENDIANNESS_LITTLE, 8, 16, 0, address_map_constructor(), address_map_constructor(FUNC(mos7360_device::mos7360_videoram_map), this)),
+		m_videoram_space_config("videoram", ENDIANNESS_LITTLE, 8, 16, 0, address_map_constructor(FUNC(mos7360_device::mos7360_videoram_map), this)),
 		m_write_irq(*this),
 		m_read_k(*this),
 		m_stream(nullptr)
@@ -278,10 +280,6 @@ mos7360_device::mos7360_device(const machine_config &mconfig, const char *tag, d
 
 void mos7360_device::device_start()
 {
-	// get the CPU device
-	m_cpu = machine().device<cpu_device>(m_cpu_tag);
-	assert(m_cpu != nullptr);
-
 	// resolve callbacks
 	m_write_irq.resolve_safe();
 	m_read_k.resolve_safe(0xff);
@@ -820,7 +818,7 @@ void mos7360_device::soundport_w(int offset, int data)
 //  read - register read
 //-------------------------------------------------
 
-uint8_t mos7360_device::read(address_space &space, offs_t offset, int &cs0, int &cs1)
+uint8_t mos7360_device::read(offs_t offset, int &cs0, int &cs1)
 {
 	uint8_t val = m_last_data;
 
@@ -904,7 +902,7 @@ uint8_t mos7360_device::read(address_space &space, offs_t offset, int &cs0, int 
 //  write - register write
 //-------------------------------------------------
 
-void mos7360_device::write(address_space &space, offs_t offset, uint8_t data, int &cs0, int &cs1)
+void mos7360_device::write(offs_t offset, uint8_t data, int &cs0, int &cs1)
 {
 	int old;
 

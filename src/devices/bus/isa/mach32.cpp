@@ -47,14 +47,10 @@ mach32_device::mach32_device(const machine_config &mconfig, device_type type, co
 {
 }
 
-MACHINE_CONFIG_START(mach32_device::device_add_mconfig)
-	MCFG_DEVICE_ADD("8514a", ATIMACH32_8514A, 0)
-	MCFG_EEPROM_SERIAL_93C56_ADD("ati_eeprom")
-MACHINE_CONFIG_END
-
-void mach32_8514a_device::device_config_complete()
+void mach32_device::device_add_mconfig(machine_config &config)
 {
-	m_vga = dynamic_cast<mach32_device*>(owner());
+	ATIMACH32_8514A(config, "8514a", 0).set_vga(DEVICE_SELF);
+	EEPROM_93C56_16BIT(config, "ati_eeprom");
 }
 
 void mach32_8514a_device::device_start()
@@ -79,7 +75,7 @@ void mach32_8514a_device::device_start()
 //                       The Graphics Ultra Pro has an ATI68875
 // bit 12:    Enable internal uC address decode
 // bit 13-15: Card ID:  ID when using multiple controllers
-READ16_MEMBER(mach32_8514a_device::mach32_config1_r)
+uint16_t mach32_8514a_device::mach32_config1_r()
 {
 	return 0x0430;  // enable VGA, 16-bit ISA, 256Kx16 DRAM, ATI68875
 }
@@ -99,7 +95,7 @@ READ16_MEMBER(mach32_8514a_device::mach32_config1_r)
  * bit      15  Draw pixel size to be written
  * If bits 11 and 15 are both 0, then for compatibility, both will be written
  */
-WRITE16_MEMBER(mach32_8514a_device::mach32_ge_ext_config_w)
+void mach32_8514a_device::mach32_ge_ext_config_w(offs_t offset, uint16_t data, uint16_t mem_mask)
 {
 	if(offset == 1)
 	{
@@ -238,14 +234,14 @@ uint32_t mach32_device::screen_update(screen_device &screen, bitmap_rgb32 &bitma
 }
 
 // mach32 Hardware Pointer
-WRITE16_MEMBER(mach32_device::mach32_cursor_l_w)
+void mach32_device::mach32_cursor_l_w(offs_t offset, uint16_t data)
 {
 	if(offset == 1)
 		m_cursor_address = (m_cursor_address & 0xf0000) | data;
 	if(LOG_MACH32) logerror("mach32 HW pointer data address: %05x",m_cursor_address);
 }
 
-WRITE16_MEMBER(mach32_device::mach32_cursor_h_w)
+void mach32_device::mach32_cursor_h_w(offs_t offset, uint16_t data)
 {
 	if(offset == 1)
 	{
@@ -255,19 +251,19 @@ WRITE16_MEMBER(mach32_device::mach32_cursor_h_w)
 	}
 }
 
-WRITE16_MEMBER(mach32_device::mach32_cursor_pos_h)
+void mach32_device::mach32_cursor_pos_h(offs_t offset, uint16_t data)
 {
 	if(offset == 1)
 		m_cursor_horizontal = data & 0x07ff;
 }
 
-WRITE16_MEMBER(mach32_device::mach32_cursor_pos_v)
+void mach32_device::mach32_cursor_pos_v(offs_t offset, uint16_t data)
 {
 	if(offset == 1)
 		m_cursor_vertical = data & 0x0fff;
 }
 
-WRITE16_MEMBER(mach32_device::mach32_cursor_colour_b_w)
+void mach32_device::mach32_cursor_colour_b_w(offs_t offset, uint16_t data)
 {
 	if(offset == 1)
 	{
@@ -278,7 +274,7 @@ WRITE16_MEMBER(mach32_device::mach32_cursor_colour_b_w)
 	}
 }
 
-WRITE16_MEMBER(mach32_device::mach32_cursor_colour_0_w)
+void mach32_device::mach32_cursor_colour_0_w(offs_t offset, uint16_t data)
 {
 	if(offset == 1)
 	{
@@ -288,7 +284,7 @@ WRITE16_MEMBER(mach32_device::mach32_cursor_colour_0_w)
 	}
 }
 
-WRITE16_MEMBER(mach32_device::mach32_cursor_colour_1_w)
+void mach32_device::mach32_cursor_colour_1_w(offs_t offset, uint16_t data)
 {
 	if(offset == 1)
 	{
@@ -298,7 +294,7 @@ WRITE16_MEMBER(mach32_device::mach32_cursor_colour_1_w)
 	}
 }
 
-WRITE16_MEMBER(mach32_device::mach32_cursor_offset_w)
+void mach32_device::mach32_cursor_offset_w(offs_t offset, uint16_t data, uint16_t mem_mask)
 {
 	if(offset == 1)
 	{
@@ -337,14 +333,10 @@ mach64_device::mach64_device(const machine_config &mconfig, device_type type, co
 {
 }
 
-MACHINE_CONFIG_START(mach64_device::device_add_mconfig)
-	MCFG_DEVICE_ADD("8514a", ATIMACH64_8514A, 0)
-	MCFG_EEPROM_SERIAL_93C56_ADD("ati_eeprom")
-MACHINE_CONFIG_END
-
-void mach64_8514a_device::device_config_complete()
+void mach64_device::device_add_mconfig(machine_config &config)
 {
-	m_vga = dynamic_cast<mach64_device*>(owner());
+	ATIMACH64_8514A(config, "8514a", 0).set_vga(DEVICE_SELF);
+	EEPROM_93C56_16BIT(config, "ati_eeprom");
 }
 
 void mach64_8514a_device::device_start()

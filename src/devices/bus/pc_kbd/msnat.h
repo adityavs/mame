@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include "cpu/mcs51/mcs51.h"
 #include "pc_kbdc.h"
 
 //**************************************************************************
@@ -38,7 +39,7 @@ protected:
 	virtual DECLARE_WRITE_LINE_MEMBER(data_write) override;
 
 private:
-	required_device<cpu_device> m_cpu;
+	required_device<i8051_device> m_cpu;
 
 	required_ioport_array<8> m_p2_r;
 	required_ioport_array<8> m_p1_r;
@@ -48,16 +49,16 @@ private:
 	uint8_t   m_p2;
 	uint8_t   m_p3;
 
-	DECLARE_READ8_MEMBER(p0_read);
-	DECLARE_WRITE8_MEMBER(p0_write);
-	DECLARE_WRITE8_MEMBER(p1_write);
-	DECLARE_WRITE8_MEMBER(p2_write);
-	DECLARE_READ8_MEMBER(p3_read);
-	DECLARE_WRITE8_MEMBER(p3_write);
+	uint8_t p0_read();
+	void p0_write(uint8_t data);
+	void p1_write(uint8_t data);
+	void p2_write(uint8_t data);
+	uint8_t p3_read();
+	void p3_write(uint8_t data);
 };
 
 
 // device type definition
-extern const device_type PC_KBD_MICROSOFT_NATURAL;
+DECLARE_DEVICE_TYPE(PC_KBD_MICROSOFT_NATURAL, pc_kbd_microsoft_natural_device)
 
 #endif // MAME_BUS_PC_KB_MSNAT_H

@@ -10,10 +10,6 @@
 
 #include "machine/timer.h"
 
-#define MCFG_WPC_DMD_ADD( _tag, _scanline_cb ) \
-	MCFG_DEVICE_ADD( _tag, WPC_DMD, 0 ) \
-	devcb = &downcast<wpc_dmd_device &>(*device).set_scanline_cb(DEVCB_##_scanline_cb);
-
 class wpc_dmd_device : public device_t
 {
 public:
@@ -22,16 +18,16 @@ public:
 
 	void registers(address_map &map);
 
-	DECLARE_WRITE8_MEMBER(bank0_w);
-	DECLARE_WRITE8_MEMBER(bank2_w);
-	DECLARE_WRITE8_MEMBER(bank4_w);
-	DECLARE_WRITE8_MEMBER(bank6_w);
-	DECLARE_WRITE8_MEMBER(bank8_w);
-	DECLARE_WRITE8_MEMBER(banka_w);
-	DECLARE_WRITE8_MEMBER(visible_page_w);
-	DECLARE_WRITE8_MEMBER(firq_scanline_w);
+	void bank0_w(uint8_t data);
+	void bank2_w(uint8_t data);
+	void bank4_w(uint8_t data);
+	void bank6_w(uint8_t data);
+	void bank8_w(uint8_t data);
+	void banka_w(uint8_t data);
+	void visible_page_w(uint8_t data);
+	void firq_scanline_w(uint8_t data);
 
-	template <class Object> devcb_base &set_scanline_cb(Object &&cb) { return scanline_cb.set_callback(std::forward<Object>(cb)); }
+	auto scanline_callback() { return scanline_cb.bind(); }
 
 protected:
 	devcb_write_line scanline_cb;

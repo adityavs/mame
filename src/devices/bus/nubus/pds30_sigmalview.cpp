@@ -32,13 +32,14 @@ DEFINE_DEVICE_TYPE(PDS030_LVIEW, nubus_lview_device, "pd3_lviw", "Sigma Designs 
 //  device_add_mconfig - add device configuration
 //-------------------------------------------------
 
-MACHINE_CONFIG_START(nubus_lview_device::device_add_mconfig)
-	MCFG_SCREEN_ADD( LVIEW_SCREEN_NAME, RASTER)
-	MCFG_SCREEN_UPDATE_DEVICE(DEVICE_SELF, nubus_lview_device, screen_update)
-	MCFG_SCREEN_SIZE(832,600)
-	MCFG_SCREEN_REFRESH_RATE(70)
-	MCFG_SCREEN_VISIBLE_AREA(0, 832-1, 0, 600-1)
-MACHINE_CONFIG_END
+void nubus_lview_device::device_add_mconfig(machine_config &config)
+{
+	screen_device &screen(SCREEN(config, LVIEW_SCREEN_NAME, SCREEN_TYPE_RASTER));
+	screen.set_screen_update(FUNC(nubus_lview_device::screen_update));
+	screen.set_size(832, 600);
+	screen.set_refresh_hz(70);
+	screen.set_visarea(0, 832-1, 0, 600-1);
+}
 
 //-------------------------------------------------
 //  rom_region - device-specific ROM region
@@ -67,10 +68,9 @@ nubus_lview_device::nubus_lview_device(const machine_config &mconfig, device_typ
 	device_t(mconfig, type, tag, owner, clock),
 	device_video_interface(mconfig, *this),
 	device_nubus_card_interface(mconfig, *this),
-	m_vram32(nullptr), m_vbl_disable(0), m_toggle(0), m_timer(nullptr), m_protstate(0),
-	m_assembled_tag(util::string_format("%s:%s", tag, LVIEW_SCREEN_NAME))
+	m_vram32(nullptr), m_vbl_disable(0), m_toggle(0), m_timer(nullptr), m_protstate(0)
 {
-	set_screen(m_assembled_tag.c_str());
+	set_screen(*this, LVIEW_SCREEN_NAME);
 }
 
 //-------------------------------------------------
@@ -90,9 +90,9 @@ void nubus_lview_device::device_start()
 	m_vram.resize(VRAM_SIZE);
 	m_vram32 = (uint32_t *)&m_vram[0];
 
-	nubus().install_device(slotspace, slotspace+VRAM_SIZE-1, read32_delegate(FUNC(nubus_lview_device::vram_r), this), write32_delegate(FUNC(nubus_lview_device::vram_w), this));
-	nubus().install_device(slotspace+0x900000, slotspace+VRAM_SIZE-1+0x900000, read32_delegate(FUNC(nubus_lview_device::vram_r), this), write32_delegate(FUNC(nubus_lview_device::vram_w), this));
-	nubus().install_device(slotspace+0xb0000, slotspace+0xbffff, read32_delegate(FUNC(nubus_lview_device::lview_r), this), write32_delegate(FUNC(nubus_lview_device::lview_w), this));
+	nubus().install_device(slotspace, slotspace+VRAM_SIZE-1, read32s_delegate(*this, FUNC(nubus_lview_device::vram_r)), write32s_delegate(*this, FUNC(nubus_lview_device::vram_w)));
+	nubus().install_device(slotspace+0x900000, slotspace+VRAM_SIZE-1+0x900000, read32s_delegate(*this, FUNC(nubus_lview_device::vram_r)), write32s_delegate(*this, FUNC(nubus_lview_device::vram_w)));
+	nubus().install_device(slotspace+0xb0000, slotspace+0xbffff, read32s_delegate(*this, FUNC(nubus_lview_device::lview_r)), write32s_delegate(*this, FUNC(nubus_lview_device::lview_w)));
 
 	m_timer = timer_alloc(0, nullptr);
 	m_timer->adjust(screen().time_until_pos(599, 0), 0);
@@ -159,13 +159,13 @@ uint32_t nubus_lview_device::screen_update(screen_device &screen, bitmap_rgb32 &
 	return 0;
 }
 
-READ32_MEMBER( nubus_lview_device::lview_r )
+uint32_t nubus_lview_device::lview_r(offs_t offset, uint32_t mem_mask)
 {
 	uint32_t rv = 0;
 
-//    printf("prot_r: @ %x, mask %08x [PC=%x  state %d]\n", offset, mem_mask, machine().device("maincpu")->safe_pc(), m_protstate);
+   // printf("%s prot_r: @ %x, mask %08x [state %d] [PC=%x]\n", machine().describe_context().c_str(), offset, mem_mask, m_protstate, machine().device<cpu_device>("maincpu")->pc());
 
-	if ((m_protstate == 1) || (m_protstate == 10) || (machine().device<cpu_device>("maincpu")->pc() == 0x5aac))
+	if ((m_protstate == 1) || (m_protstate == 10) || (m_protstate == 17) || (m_protstate == 20) || (m_protstate == 22))
 	{
 		rv = 0x02020202;
 	}
@@ -179,13 +179,13 @@ READ32_MEMBER( nubus_lview_device::lview_r )
 	return rv;
 }
 
-WRITE32_MEMBER( nubus_lview_device::lview_w )
+void nubus_lview_device::lview_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 //    if (offset != 0x7a && offset != 0x3ffb) logerror("prot_w: %08x @ %x, mask %08x %s\n", data, offset, mem_mask, machine().describe_context());
 
 	if (offset == 0x7a)
 	{
-		if (data == 1)
+		if (data != 1)
 		{
 			m_vbl_disable = 0;
 			lower_slot_irq();
@@ -197,12 +197,12 @@ WRITE32_MEMBER( nubus_lview_device::lview_w )
 	}
 }
 
-WRITE32_MEMBER( nubus_lview_device::vram_w )
+void nubus_lview_device::vram_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	COMBINE_DATA(&m_vram32[offset]);
 }
 
-READ32_MEMBER( nubus_lview_device::vram_r )
+uint32_t nubus_lview_device::vram_r(offs_t offset, uint32_t mem_mask)
 {
 	return m_vram32[offset];
 }

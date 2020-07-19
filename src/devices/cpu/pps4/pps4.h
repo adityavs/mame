@@ -24,18 +24,6 @@ enum
 	PPS4_Ip
 };
 
-//**************************************************************************
-//  INTERFACE CONFIGURATION MACROS
-//**************************************************************************
-
-#define MCFG_PPS4_DISCRETE_INPUT_A_CB(_devcb) \
-	devcb = &downcast<pps4_device &>(*device).set_dia_cb(DEVCB_##_devcb);
-
-#define MCFG_PPS4_DISCRETE_INPUT_B_CB(_devcb) \
-	devcb = &downcast<pps4_device &>(*device).set_dib_cb(DEVCB_##_devcb);
-
-#define MCFG_PPS4_DISCRETE_OUTPUT_CB(_devcb) \
-	devcb = &downcast<pps4_device &>(*device).set_do_cb(DEVCB_##_devcb);
 
 //**************************************************************************
 //  DEVICE TYPE DEFINITIONS
@@ -55,11 +43,11 @@ public:
 	pps4_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock);
 
 	// configuration helpers
-	template <class Object> devcb_base &set_dia_cb(Object &&cb) { return m_dia_cb.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_dib_cb(Object &&cb) { return m_dib_cb.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_do_cb(Object &&cb) { return m_do_cb.set_callback(std::forward<Object>(cb)); }
+	auto dia_cb() { return m_dia_cb.bind(); }
+	auto dib_cb() { return m_dib_cb.bind(); }
+	auto do_cb() { return m_do_cb.bind(); }
 
-	DECLARE_READ16_MEMBER(address_bus_r);
+	u16 address_bus_r(address_space &space);
 
 protected:
 	pps4_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, u32 clock);
@@ -69,10 +57,9 @@ protected:
 	virtual void device_reset() override;
 
 	// device_execute_interface overrides
-	virtual u32 execute_min_cycles() const override { return 1; }
-	virtual u32 execute_max_cycles() const override { return 3; }
-	virtual u32 execute_input_lines() const override { return 0; }
-	virtual u32 execute_default_irq_vector() const override { return 0; }
+	virtual u32 execute_min_cycles() const noexcept override { return 1; }
+	virtual u32 execute_max_cycles() const noexcept override { return 3; }
+	virtual u32 execute_input_lines() const noexcept override { return 0; }
 	virtual void execute_run() override;
 
 	// device_memory_interface overrides
@@ -82,7 +69,7 @@ protected:
 	virtual void state_string_export(const device_state_entry &entry, std::string &str) const override;
 
 	// device_disasm_interface overrides
-	virtual util::disasm_interface *create_disassembler() override;
+	virtual std::unique_ptr<util::disasm_interface> create_disassembler() override;
 
 	address_space_config m_program_config;
 	address_space_config m_data_config;
@@ -92,10 +79,10 @@ protected:
 	devcb_read8 m_dib_cb;
 	devcb_write8 m_do_cb;
 
-	address_space *m_program;
-	direct_read_data<0> *m_direct;
-	address_space *m_data;
-	address_space *m_io;
+	memory_access<12, 0, 0, ENDIANNESS_LITTLE>::cache m_cache;
+	memory_access<12, 0, 0, ENDIANNESS_LITTLE>::specific m_program;
+	memory_access<12, 0, 0, ENDIANNESS_LITTLE>::specific m_data;
+	memory_access< 8, 0, 0, ENDIANNESS_LITTLE>::specific m_io;
 	int     m_icount;
 
 	u8        m_A;        //!< Accumulator A(4:1)
@@ -191,8 +178,8 @@ protected:
 	virtual void device_reset() override;
 
 	// device_execute_interface overrides (NOTE: these assume internal XTAL divider is always used)
-	virtual u64 execute_clocks_to_cycles(u64 clocks) const override { return (clocks + 18 - 1) / 18; }
-	virtual u64 execute_cycles_to_clocks(u64 cycles) const override { return (cycles * 18); }
+	virtual u64 execute_clocks_to_cycles(u64 clocks) const noexcept override { return (clocks + 18 - 1) / 18; }
+	virtual u64 execute_cycles_to_clocks(u64 cycles) const noexcept override { return (cycles * 18); }
 
 	virtual void iDIB() override;
 	virtual void iDOA() override;

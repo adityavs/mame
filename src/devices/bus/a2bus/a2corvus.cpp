@@ -71,17 +71,14 @@ ROM_END
 //  device_add_mconfig - add device configuration
 //-------------------------------------------------
 
-MACHINE_CONFIG_START(a2bus_corvus_device::device_add_mconfig)
-	MCFG_DEVICE_ADD(CORVUS_HD_TAG, CORVUS_HDC, 0)
-	MCFG_HARDDISK_ADD("harddisk1")
-	MCFG_HARDDISK_INTERFACE("corvus_hdd")
-	MCFG_HARDDISK_ADD("harddisk2")
-	MCFG_HARDDISK_INTERFACE("corvus_hdd")
-	MCFG_HARDDISK_ADD("harddisk3")
-	MCFG_HARDDISK_INTERFACE("corvus_hdd")
-	MCFG_HARDDISK_ADD("harddisk4")
-	MCFG_HARDDISK_INTERFACE("corvus_hdd")
-MACHINE_CONFIG_END
+void a2bus_corvus_device::device_add_mconfig(machine_config &config)
+{
+	CORVUS_HDC(config, m_corvushd, 0);
+	HARDDISK(config, "harddisk1", "corvus_hdd");
+	HARDDISK(config, "harddisk2", "corvus_hdd");
+	HARDDISK(config, "harddisk3", "corvus_hdd");
+	HARDDISK(config, "harddisk4", "corvus_hdd");
+}
 
 //-------------------------------------------------
 //  rom_region - device-specific ROM region
@@ -131,10 +128,10 @@ uint8_t a2bus_corvus_device::read_c0nx(uint8_t offset)
 	switch (offset)
 	{
 		case 0:
-			return m_corvushd->read(machine().dummy_space(), 0);
+			return m_corvushd->read();
 
 		case 1:
-			return m_corvushd->status_r(machine().dummy_space(), 0);
+			return m_corvushd->status_r();
 
 		default:
 			logerror("Corvus: read unhandled c0n%x (%s)\n", offset, machine().describe_context());
@@ -153,7 +150,7 @@ void a2bus_corvus_device::write_c0nx(uint8_t offset, uint8_t data)
 {
 	if (offset == 0)
 	{
-		m_corvushd->write(machine().dummy_space(), 0, data);
+		m_corvushd->write(data);
 	}
 }
 

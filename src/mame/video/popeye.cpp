@@ -1,5 +1,5 @@
 // license:BSD-3-Clause
-// copyright-holders:Nicola Salmoria, Couriersud
+// copyright-holders:smf, Nicola Salmoria, Couriersud
 // thanks-to: Marc Lafontaine
 /***************************************************************************
 
@@ -11,13 +11,6 @@
 
 #include "emu.h"
 #include "includes/popeye.h"
-
-#define USE_NEW_COLOR (1)
-
-// Only enable USE_INTERLACE if you can ensure the game is rendered at an
-// integer multiple of it's original resolution
-#define USE_INTERLACE (0)
-
 
 /***************************************************************************
 
@@ -51,6 +44,18 @@
   bit 0 -- 1.2kohm resistor  -- RED (inverted)
 
   The bootleg is the same, but the outputs are not inverted.
+
+  system11 left the following comment on mametesters:
+
+      Worth noting that there are at least 3 different types of picture output
+      for this game - and it will be difficult to make it match 'everything' out there.
+        1) Normal Nintendo board - inverted video output
+        2) Normal Nintendo board with non-inverted video output - has potentiometers to adjust R/G/B
+        3) Bootleg board, non inverted non adjustable output
+
+  Additional note: Output for 1) is also adjusted by potentiometers which adjust
+  RGB. With today's bgfx hlsl filters it is easy to individually adjust
+  levels.
 
 ***************************************************************************/
 
@@ -86,7 +91,17 @@ const res_net_info tnx1_state::txt_mb7051_net_info =
 	}
 };
 
-const res_net_info tnx1_state::bak_mb7051_net_info =
+const res_net_info tnx1_state::tnx1_bak_mb7051_net_info =
+{
+	RES_NET_VCC_5V | RES_NET_VBIAS_5V | RES_NET_VIN_MB7051 | RES_NET_MONITOR_SANYO_EZV20,
+	{
+		{ RES_NET_AMP_DARLINGTON, 470, 0, 3, { 1200, 680, 470 } },
+		{ RES_NET_AMP_DARLINGTON, 470, 0, 3, { 1200, 680, 470 } },
+		{ RES_NET_AMP_DARLINGTON, 680, 0, 2, {  680, 470,   0 } }
+	}
+};
+
+const res_net_info tpp1_state::tpp1_bak_mb7051_net_info =
 {
 	RES_NET_VCC_5V | RES_NET_VBIAS_5V | RES_NET_VIN_MB7051 | RES_NET_MONITOR_SANYO_EZV20,
 	{
@@ -107,12 +122,12 @@ const res_net_info tnx1_state::obj_mb7052_net_info =
 };
 
 
-PALETTE_INIT_MEMBER(tpp1_state, palette_init)
+void tpp1_state::tnx1_palette(palette_device &palette)
 {
-	/* Two of the PROM address pins are tied together */
+	// Two of the PROM address pins are tied together
 	for (int i = 0; i < 0x20; i++)
 	{
-		int color = (i & 0xf) | ((i & 0x8) << 1);
+		int const color = (i & 0xf) | ((i & 0x8) << 1);
 		m_color_prom[i + 0x20] = m_color_prom[color + 0x20];
 	}
 
@@ -121,12 +136,12 @@ PALETTE_INIT_MEMBER(tpp1_state, palette_init)
 	update_palette();
 }
 
-PALETTE_INIT_MEMBER(tnx1_state, palette_init)
+void tnx1_state::tnx1_palette(palette_device &palette)
 {
-	/* Two of the PROM address pins are tied together and one is not connected... */
+	// Two of the PROM address pins are tied together and one is not connected...
 	for (int i = 0;i < 0x100;i++)
 	{
-		int color = (i & 0x3f) | ((i & 0x20) << 1);
+		int const color = (i & 0x3f) | ((i & 0x20) << 1);
 		m_color_prom_spr[i] = m_color_prom_spr[color];
 	}
 
@@ -141,39 +156,10 @@ void tnx1_state::update_palette()
 	{
 		uint8_t *color_prom = m_color_prom + 16 * ((m_palette_bank & 0x08) >> 3);
 
-#if USE_NEW_COLOR
 		std::vector<rgb_t> rgb;
 
-		compute_res_net_all(rgb, color_prom, mb7051_decode_info, bak_mb7051_net_info);
+		compute_res_net_all(rgb, color_prom, mb7051_decode_info, bak_mb7051_net_info());
 		m_palette->set_pen_colors(0, rgb);
-#else
-		for (int i = 0; i < 16; i++)
-		{
-			/* red component */
-			int bit0 = (~color_prom[i] >> 0) & 0x01;
-			int bit1 = (~color_prom[i] >> 1) & 0x01;
-			int bit2 = (~color_prom[i] >> 2) & 0x01;
-			int r = 0x1c * bit0 + 0x31 * bit1 + 0x47 * bit2;
-			/* green component */
-			bit0 = (~color_prom[i] >> 3) & 0x01;
-			bit1 = (~color_prom[i] >> 4) & 0x01;
-			bit2 = (~color_prom[i] >> 5) & 0x01;
-			int g = 0x1c * bit0 + 0x31 * bit1 + 0x47 * bit2;
-			/* blue component */
-			bit0 = 0;
-			bit1 = (~color_prom[i] >> 6) & 0x01;
-			bit2 = (~color_prom[i] >> 7) & 0x01;
-			//if (m_bitmap_type == TYPE_TNX1)
-			//{
-			//  /* Sky Skipper has different weights */
-			//  bit0 = bit1;
-			//  bit1 = 0;
-			//}
-			int b = 0x1c * bit0 + 0x31 * bit1 + 0x47 * bit2;
-
-			m_palette->set_pen_color(i, rgb_t(r, g, b));
-		}
-#endif
 	}
 
 	if ((m_palette_bank ^ m_palette_bank_cache) & 0x08)
@@ -181,7 +167,6 @@ void tnx1_state::update_palette()
 		uint8_t *color_prom = m_color_prom + 32 + 16 * ((m_palette_bank & 0x08) >> 3);
 
 		/* characters */
-#if USE_NEW_COLOR
 		for (int i = 0; i < 16; i++)
 		{
 			int r = compute_res_net((color_prom[i] >> 0) & 0x07, 0, txt_mb7051_net_info);
@@ -190,69 +175,22 @@ void tnx1_state::update_palette()
 			m_palette->set_pen_color(16 + (2 * i) + 0, rgb_t(0, 0, 0));
 			m_palette->set_pen_color(16 + (2 * i) + 1, rgb_t(r, g, b));
 		}
-#else
-		for (int i = 0; i < 16; i++)
-		{
-			/* red component */
-			int bit0 = (~color_prom[i] >> 0) & 0x01;
-			int bit1 = (~color_prom[i] >> 1) & 0x01;
-			int bit2 = (~color_prom[i] >> 2) & 0x01;
-			int r = 0x21 * bit0 + 0x47 * bit1 + 0x97 * bit2;
-			/* green component */
-			bit0 = (~color_prom[i] >> 3) & 0x01;
-			bit1 = (~color_prom[i] >> 4) & 0x01;
-			bit2 = (~color_prom[i] >> 5) & 0x01;
-			int g = 0x21 * bit0 + 0x47 * bit1 + 0x97 * bit2;
-			/* blue component */
-			bit0 = 0;
-			bit1 = (~color_prom[i] >> 6) & 0x01;
-			bit2 = (~color_prom[i] >> 7) & 0x01;
-			int b = 0x21 * bit0 + 0x47 * bit1 + 0x97 * bit2;
-
-			m_palette->set_pen_color(16 + (2 * i) + 1, rgb_t(r, g, b));
-		}
-#endif
 	}
 
 	if ((m_palette_bank ^ m_palette_bank_cache) & 0x07)
 	{
 		uint8_t *color_prom = m_color_prom_spr + 32 * (m_palette_bank & 0x07);
 
-#if USE_NEW_COLOR
 		/* sprites */
 		std::vector<rgb_t> rgb;
 		compute_res_net_all(rgb, color_prom, mb7052_decode_info, obj_mb7052_net_info);
 		m_palette->set_pen_colors(48, rgb);
-#else
-		for (int i = 0; i < 32; i++)
-		{
-			int bit0, bit1, bit2, r, g, b;
-
-			/* red component */
-			bit0 = (~color_prom[i] >> 0) & 0x01;
-			bit1 = (~color_prom[i] >> 1) & 0x01;
-			bit2 = (~color_prom[i] >> 2) & 0x01;
-			r = 0x21 * bit0 + 0x47 * bit1 + 0x97 * bit2;
-			/* green component */
-			bit0 = (~color_prom[i] >> 3) & 0x01;
-			bit1 = (~color_prom[i] >> 4) & 0x01;
-			bit2 = (~color_prom[i] >> 5) & 0x01;
-			g = 0x21 * bit0 + 0x47 * bit1 + 0x97 * bit2;
-			/* blue component */
-			bit0 = 0;
-			bit1 = (~color_prom[i] >> 6) & 0x01;
-			bit2 = (~color_prom[i] >> 7) & 0x01;
-			b = 0x21 * bit0 + 0x47 * bit1 + 0x97 * bit2;
-
-			m_palette->set_pen_color(48 + i, rgb_t(r, g, b));
-		}
-#endif
 	}
 
 	m_palette_bank_cache = m_palette_bank;
 }
 
-WRITE8_MEMBER(tnx1_state::background_w)
+void tnx1_state::background_w(offs_t offset, uint8_t data)
 {
 	// TODO: confirm the memory layout
 	bool lsn = (data & 0x80) == 0;
@@ -266,7 +204,7 @@ WRITE8_MEMBER(tnx1_state::background_w)
 	}
 }
 
-WRITE8_MEMBER(tpp2_state::background_w)
+void tpp2_state::background_w(offs_t offset, uint8_t data)
 {
 	// TODO: confirm the memory layout
 	bool lsn = (offset & 0x40) == 0;
@@ -281,13 +219,13 @@ WRITE8_MEMBER(tpp2_state::background_w)
 	}
 }
 
-WRITE8_MEMBER(tnx1_state::popeye_videoram_w)
+void tnx1_state::popeye_videoram_w(offs_t offset, uint8_t data)
 {
 	m_videoram[offset] = data;
 	m_fg_tilemap->mark_tile_dirty(offset);
 }
 
-WRITE8_MEMBER(tnx1_state::popeye_colorram_w)
+void tnx1_state::popeye_colorram_w(offs_t offset, uint8_t data)
 {
 	m_colorram[offset] = data;
 	m_fg_tilemap->mark_tile_dirty(offset);
@@ -298,7 +236,7 @@ TILE_GET_INFO_MEMBER(tnx1_state::get_fg_tile_info)
 	int code = m_videoram[tile_index];
 	int color = m_colorram[tile_index] & 0x0f;
 
-	SET_TILE_INFO_MEMBER(0, code, color, 0);
+	tileinfo.set(0, code, color, 0);
 }
 
 void tnx1_state::video_start()
@@ -308,8 +246,11 @@ void tnx1_state::video_start()
 
 	m_sprite_bitmap = std::make_unique<bitmap_ind16>(512, 512);
 
-	m_fg_tilemap = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(FUNC(tnx1_state::get_fg_tile_info),this), TILEMAP_SCAN_ROWS, 16, 16, 32, 32);
+	m_fg_tilemap = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(*this, FUNC(tnx1_state::get_fg_tile_info)), TILEMAP_SCAN_ROWS, 16, 16, 32, 32);
 	m_fg_tilemap->set_transparent_pen(0);
+
+	m_bitmap[0].resize(512, 512);
+	m_bitmap[1].resize(512, 512);
 
 	m_field = 0;
 
@@ -329,13 +270,13 @@ void tnx1_state::draw_sprites(bitmap_ind16 &bitmap, const rectangle &cliprect)
 	{
 		struct attribute_memory
 		{
-			int row;
-			int sx;
-			uint8_t color;
-			uint16_t code;
-			int flipx;
-			int flipy;
-		} attributes[64] = { 0 };
+			int row = 0;
+			int sx = 0;
+			uint8_t color = 0;
+			uint16_t code = 0;
+			int flipx = 0;
+			int flipy = 0;
+		} attributes[64];
 
 		for (int offs = 4; offs < m_dmasource.bytes(); offs += 4)
 		{
@@ -373,6 +314,7 @@ void tnx1_state::draw_sprites(bitmap_ind16 &bitmap, const rectangle &cliprect)
 			}
 		}
 
+		int flipx = 0;
 		for (int i = 0; i < 64; i++)
 		{
 			struct attribute_memory *a = &attributes[i];
@@ -383,9 +325,23 @@ void tnx1_state::draw_sprites(bitmap_ind16 &bitmap, const rectangle &cliprect)
 				const uint8_t *source_base = gfx->get_data(a->code % gfx->elements());
 				const uint8_t *source = source_base + (a->row ^ a->flipy) * gfx->rowbytes();
 
+				if (bootleg_sprites() && flipx != a->flipx)
+				{
+					int px = a->sx - 7;
+					if (px >= 0 && px < 512)
+					{
+						if (flip_screen())
+							px ^= 0x1ff;
+
+						m_sprite_bitmap->pix(y, px) = 0;
+					}
+
+					flipx = a->flipx;
+				}
+
 				for (int x = 0; x < 16; x++)
 				{
-					int px = a->sx + x - 8;
+					int px = a->sx + x - 6;
 					if (px >= 0 && px < 512)
 					{
 						if (flip_screen())
@@ -483,7 +439,7 @@ void tpp2_state::draw_background(bitmap_ind16 &bitmap, const rectangle &cliprect
 			else
 			{
 				// TODO: confirm the memory layout
-				int sx = x + (2 * m_background_scroll[0]) + 0x72;
+				int sx = x + (2 * m_background_scroll[0]) + 0x70;
 				int shift = (sy & 4);
 
 				bitmap.pix16(y, x) = (m_background_ram[((sx / 8) & 0x3f) + ((sy / 8) * 0x40)] >> shift) & 0xf;
@@ -494,12 +450,37 @@ void tpp2_state::draw_background(bitmap_ind16 &bitmap, const rectangle &cliprect
 
 uint32_t tnx1_state::screen_update(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect)
 {
+	const auto ilmode(m_io_mconf->read());
+	bitmap_ind16 &bm((ilmode == 0) ? bitmap : m_bitmap[m_field]);
+
 	update_palette();
-	draw_background(bitmap, cliprect);
-	draw_sprites(bitmap, cliprect);
-	m_fg_tilemap->draw(screen, bitmap, cliprect, 0, 0);
-#if USE_INTERLACE
-	draw_field(bitmap, cliprect);
-#endif
+	draw_background(bm, cliprect);
+	draw_sprites(bm, cliprect);
+	m_fg_tilemap->draw(screen, bm, cliprect, 0, 0);
+	if (ilmode == 1)
+	{
+		for (int y=(cliprect.min_y); y<=cliprect.max_y; y ++)
+		{
+			if ((y & 1) == m_field)
+				for (int x=cliprect.min_x; x<=cliprect.max_x; x++)
+					bitmap.pix(y, x) = 0;
+			else
+				for (int x=cliprect.min_x; x<=cliprect.max_x; x++)
+					bitmap.pix(y, x) = bm.pix(y, x);
+		}
+	}
+	else if (ilmode == 2)
+	{
+		for (int y=(cliprect.min_y); y<=cliprect.max_y; y ++)
+		{
+			auto &bm_last(m_bitmap[m_field ^ 1]);
+			if ((y & 1) == m_field)
+				for (int x=cliprect.min_x; x<=cliprect.max_x; x++)
+					bitmap.pix(y, x) = bm_last.pix(y, x);
+			else
+				for (int x=cliprect.min_x; x<=cliprect.max_x; x++)
+					bitmap.pix(y, x) = bm.pix(y, x);
+		}
+	}
 	return 0;
 }

@@ -12,16 +12,6 @@ Mitsubishi M50458 OSD chip
 #pragma once
 
 
-
-//**************************************************************************
-//  INTERFACE CONFIGURATION MACROS
-//**************************************************************************
-
-#define MCFG_M50458_ADD(_tag,_freq,_screen) \
-	MCFG_DEVICE_ADD(_tag, M50458,_freq) \
-	MCFG_VIDEO_SET_SCREEN(_screen)
-
-
 //**************************************************************************
 //  TYPE DEFINITIONS
 //**************************************************************************
@@ -34,6 +24,13 @@ class m50458_device :   public device_t,
 {
 public:
 	// construction/destruction
+	template <typename T>
+	m50458_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock, T &&screen_tag)
+		: m50458_device(mconfig, tag, owner, clock)
+	{
+		set_screen(std::forward<T>(screen_tag));
+	}
+
 	m50458_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
 
 	// I/O operations
@@ -61,14 +58,14 @@ private:
 	inline uint16_t read_word(offs_t address);
 	inline void write_word(offs_t address, uint16_t data);
 
-	DECLARE_WRITE16_MEMBER(vreg_120_w);
-	DECLARE_WRITE16_MEMBER(vreg_121_w);
-	DECLARE_WRITE16_MEMBER(vreg_122_w);
-	DECLARE_WRITE16_MEMBER(vreg_123_w);
-	DECLARE_WRITE16_MEMBER(vreg_124_w);
-	DECLARE_WRITE16_MEMBER(vreg_125_w);
-	DECLARE_WRITE16_MEMBER(vreg_126_w);
-	DECLARE_WRITE16_MEMBER(vreg_127_w);
+	void vreg_120_w(uint16_t data);
+	void vreg_121_w(uint16_t data);
+	void vreg_122_w(uint16_t data);
+	void vreg_123_w(uint16_t data);
+	void vreg_124_w(uint16_t data);
+	void vreg_125_w(uint16_t data);
+	void vreg_126_w(uint16_t data);
+	void vreg_127_w(uint16_t data);
 
 	void m50458_vram(address_map &map);
 

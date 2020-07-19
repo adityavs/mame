@@ -6,9 +6,7 @@
 
 #pragma once
 
-#include <limits.h>
-#include "softfloat/milieu.h"
-#include "softfloat/softfloat.h"
+#include "softfloat3/source/include/softfloat.h"
 
 #include "cpu/clipper/common.h"
 #include "machine/cammu.h"
@@ -20,8 +18,8 @@
 class clipper_device : public cpu_device
 {
 public:
-	DECLARE_WRITE8_MEMBER(set_ivec) { m_ivec = data; }
-	DECLARE_WRITE16_MEMBER(set_exception);
+	void set_ivec(u8 data) { m_ivec = data; }
+	void set_exception(u16 data);
 
 	// branch conditions (first description for comparison, second for move/logical)
 	enum branch_conditions : u8
@@ -94,11 +92,15 @@ public:
 
 	enum ssw_id : u32
 	{
-		SSW_ID_C400R0 = 0x00800,
-		SSW_ID_C400R1 = 0x04800,
-		SSW_ID_C400R2 = 0x08800,
-		SSW_ID_C400R3 = 0x0c800,
-		SSW_ID_C400R4 = 0x10800
+		SSW_ID_C1R1 = 0x00000,
+		SSW_ID_C2R1 = 0x00200,
+		SSW_ID_C3R1 = 0x00400,
+		SSW_ID_E1R1 = 0x00600,
+		SSW_ID_C4R0 = 0x00800,
+		SSW_ID_C4R1 = 0x04800,
+		SSW_ID_C4R2 = 0x08800,
+		SSW_ID_C4R3 = 0x0c800,
+		SSW_ID_C4R4 = 0x10800
 	};
 
 	// trap source values are shifted into the correct field in the psw
@@ -138,11 +140,11 @@ public:
 	enum fp_exception_mask : u8
 	{
 		F_NONE  = (0),
-		F_I     = (float_flag_invalid),
-		F_X     = (float_flag_inexact),
-		F_IX    = (float_flag_invalid | float_flag_inexact),
-		F_IVUX  = (float_flag_invalid | float_flag_overflow | float_flag_underflow | float_flag_inexact),
-		F_IVDUX = (float_flag_invalid | float_flag_overflow | float_flag_divbyzero | float_flag_underflow | float_flag_inexact)
+		F_I     = (softfloat_flag_invalid),
+		F_X     = (softfloat_flag_inexact),
+		F_IX    = (softfloat_flag_invalid | softfloat_flag_inexact),
+		F_IVUX  = (softfloat_flag_invalid | softfloat_flag_overflow | softfloat_flag_underflow | softfloat_flag_inexact),
+		F_IVDUX = (softfloat_flag_invalid | softfloat_flag_overflow | softfloat_flag_infinite | softfloat_flag_underflow | softfloat_flag_inexact)
 	};
 
 protected:
@@ -153,20 +155,21 @@ protected:
 	virtual void device_reset() override;
 
 	// device_execute_interface overrides
-	virtual u32 execute_min_cycles() const override { return 1; }
-	virtual u32 execute_max_cycles() const override { return 1; } // FIXME: don't know, especially macro instructions
-	virtual u32 execute_input_lines() const override { return 2; } // number of input/interrupt lines (irq/nmi)
+	virtual u32 execute_min_cycles() const noexcept override { return 1; }
+	virtual u32 execute_max_cycles() const noexcept override { return 1; } // FIXME: don't know, especially macro instructions
+	virtual u32 execute_input_lines() const noexcept override { return 2; } // number of input/interrupt lines (irq/nmi)
 	virtual void execute_run() override;
 	virtual void execute_set_input(int inputnum, int state) override;
 
 	// device_memory_interface overrides
 	virtual space_config_vector memory_space_config() const override;
+	virtual bool memory_translate(int spacenum, int intention, offs_t &address) override;
 
 	// device_state_interface overrides
 	virtual void state_string_export(const device_state_entry &entry, std::string &str) const override;
 
 	// device_disasm_interface overrides
-	virtual util::disasm_interface *create_disassembler() override;
+	virtual std::unique_ptr<util::disasm_interface> create_disassembler() override;
 
 	// mmu helpers
 	virtual cammu_device &get_icammu() const = 0;
@@ -190,20 +193,31 @@ protected:
 	virtual int get_ireg_count() const { return 16; }
 	virtual int get_freg_count() const { return 8; }
 
+	// register pair helpers
+	u64 get_64(const u8 reg) const
+	{
+		return u64(m_r[reg | 0x1]) << 32 | u64(m_r[reg & 0xe]);
+	}
+	void set_64(const u8 reg, const u64 data)
+	{
+		m_r[reg & 0xe] = u32(data & ~u32(0));
+		m_r[reg | 0x1] = u32(data >> 32);
+	}
+
 	// floating point helpers
-	float32 get_fp32(const u8 reg) const { return m_f[reg & 0xf]; }
-	float64 get_fp64(const u8 reg) const { return m_f[reg & 0xf]; }
-	template <typename T> void set_fp(const u8 reg, const T data, const fp_exception_mask exception_mask)
+	float32_t get_fp32(u8 const reg) const { return float32_t{ u32(m_f[reg & 0xf]) }; }
+	float64_t get_fp64(u8 const reg) const { return float64_t{ m_f[reg & 0xf] }; }
+	template <typename T> void set_fp(u8 const reg, T const data, fp_exception_mask const exception_mask)
 	{
 		// suppress unexpected exceptions
-		float_exception_flags &= exception_mask;
+		softfloat_exceptionFlags &= exception_mask;
 
 		// save floating exception state
 		m_fp_pc = m_pc;
 		m_fp_dst = m_f[reg & 0xf];
 
 		// assign data
-		if (float_exception_flags & float_flag_overflow && PSW(EFV))
+		if (softfloat_exceptionFlags & softfloat_flag_overflow && PSW(EFV))
 		{
 			/*
 			 * If the EFV flag is set, the computed result is delivered to the
@@ -225,9 +239,9 @@ protected:
 			 * Standard wrapped exponent.
 			 */
 			// FIXME: implement non-IEEE behaviour described above
-			m_f[reg & 0xf] = data;
+			m_f[reg & 0xf] = data.v;
 		}
-		else if (float_exception_flags & float_flag_underflow && PSW(EFU))
+		else if (softfloat_exceptionFlags & softfloat_flag_underflow && PSW(EFU))
 		{
 			/*
 			 * If EFU is set, the floating underflow exception is signalled
@@ -244,14 +258,17 @@ protected:
 			 * is 0..-275; for double-precision the range is 0..-1125.
 			 */
 			// FIXME: implement non-IEEE behaviour described above
-			m_f[reg & 0xf] = data;
+			m_f[reg & 0xf] = data.v;
 		}
 		else
-			m_f[reg & 0xf] = data;
+			m_f[reg & 0xf] = data.v;
 
 		// set floating dirty flag
 		m_ssw |= SSW_FRD;
 	};
+
+	std::string debug_string(u32 pointer);
+	std::string debug_string_array(u32 array_pointer);
 
 	// emulation state
 	address_space_config m_main_config;
@@ -260,15 +277,15 @@ protected:
 
 	enum registers
 	{
-		CLIPPER_IREG = 0,
-		CLIPPER_FREG = 16,
-		CLIPPER_PSW  = 32,
-		CLIPPER_SSW  = 33,
-		CLIPPER_PC   = 34,
+		CLIPPER_UREG = 0,
+		CLIPPER_SREG = 16,
+		CLIPPER_FREG = 32,
+		CLIPPER_PSW  = 48,
+		CLIPPER_SSW  = 49,
+		CLIPPER_PC   = 50,
 	};
 
 	int m_icount;    // instruction cycle count
-	bool m_wait;
 
 	// program-visible cpu state
 	u32 m_pc;  // current instruction address
@@ -284,15 +301,16 @@ protected:
 	u64 m_fp_dst; // original value of destination register during fp exception
 
 	// non-visible cpu state
-	u32 m_ip;        // next instruction address
-	int m_irq;       // interrupt request state
+	bool m_wait;     // waiting for interrupt
 	int m_nmi;       // non-maskable interrupt state
+	int m_irq;       // interrupt request state
 	u8 m_ivec;       // interrupt vector
 	u16 m_exception; // pending exception
 
 	// decoded instruction information
 	struct decode
 	{
+		u32 pc;       // base address of instruction
 		u8 opcode;    // primary instruction opcode
 		u8 subopcode; // secondary instruction opcode
 		u8 r1;        // r1 instruction operand
@@ -338,6 +356,9 @@ public:
 	clipper_c400_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock);
 
 protected:
+	// device-level overrides
+	virtual void device_start() override;
+
 	virtual u32 intrap(const u16 vector, const u32 old_pc) override;
 
 	// C400 has additional 8 floating point registers

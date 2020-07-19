@@ -8,6 +8,8 @@
 
 #include "machine/74157.h"
 #include "sound/msm5205.h"
+#include "emupal.h"
+#include "tilemap.h"
 
 class yunsung8_state : public driver_device
 {
@@ -23,6 +25,9 @@ public:
 	{
 	}
 
+	void yunsung8(machine_config &config);
+
+private:
 	/* video-related */
 	tilemap_t     *m_bg_tilemap;
 	tilemap_t     *m_fg_tilemap;
@@ -45,13 +50,13 @@ public:
 	/* memory */
 	uint8_t      m_videoram[0x4000];
 
-	DECLARE_WRITE8_MEMBER(bankswitch_w);
-	DECLARE_WRITE8_MEMBER(main_irq_ack_w);
-	DECLARE_WRITE8_MEMBER(videobank_w);
-	DECLARE_READ8_MEMBER(videoram_r);
-	DECLARE_WRITE8_MEMBER(videoram_w);
-	DECLARE_WRITE8_MEMBER(flipscreen_w);
-	DECLARE_WRITE8_MEMBER(sound_bankswitch_w);
+	void bankswitch_w(uint8_t data);
+	void main_irq_ack_w(uint8_t data);
+	void videobank_w(uint8_t data);
+	uint8_t videoram_r(offs_t offset);
+	void videoram_w(offs_t offset, uint8_t data);
+	void flipscreen_w(uint8_t data);
+	void sound_bankswitch_w(uint8_t data);
 	DECLARE_WRITE_LINE_MEMBER(adpcm_int);
 
 	TILE_GET_INFO_MEMBER(get_bg_tile_info);
@@ -62,7 +67,7 @@ public:
 	virtual void video_start() override;
 
 	uint32_t screen_update(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
-	void yunsung8(machine_config &config);
+
 	void main_map(address_map &map);
 	void port_map(address_map &map);
 	void sound_map(address_map &map);

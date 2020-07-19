@@ -36,13 +36,15 @@ public:
 		TIMER_UPDATE_SIGNAL
 	};
 
+	void vectrex_cart(device_slot_interface &device);
+
 protected:
 	vectrex_base_state(const machine_config &mconfig, device_type type, const char *tag) :
 		driver_device(mconfig, type, tag),
 		m_maincpu(*this, "maincpu"),
 		m_cart(*this, "cartslot"),
-		m_gce_vectorram(*this, "gce_vectorram"),
 		m_via6522_0(*this, "via6522_0"),
+		m_gce_vectorram(*this, "gce_vectorram"),
 		m_dac(*this, "dac"),
 		m_ay8912(*this, "ay8912"),
 		m_vector(*this, "vector"),
@@ -55,9 +57,9 @@ protected:
 		m_screen(*this, "screen")
 	{ }
 
-	DECLARE_WRITE8_MEMBER(vectrex_psg_port_w);
-	DECLARE_READ8_MEMBER(vectrex_via_r);
-	DECLARE_WRITE8_MEMBER(vectrex_via_w);
+	void vectrex_psg_port_w(uint8_t data);
+	uint8_t vectrex_via_r(offs_t offset);
+	void vectrex_via_w(offs_t offset, uint8_t data);
 	virtual void driver_start() override;
 	virtual void video_start() override;
 	uint32_t screen_update_vectrex(screen_device &screen, bitmap_rgb32 &bitmap, const rectangle &cliprect);
@@ -68,13 +70,13 @@ protected:
 	TIMER_CALLBACK_MEMBER(vectrex_refresh);
 	TIMER_CALLBACK_MEMBER(vectrex_zero_integrators);
 	TIMER_CALLBACK_MEMBER(update_signal);
-	DECLARE_READ8_MEMBER(vectrex_via_pb_r);
-	DECLARE_READ8_MEMBER(vectrex_via_pa_r);
-	DECLARE_WRITE8_MEMBER(v_via_pb_w);
-	DECLARE_WRITE8_MEMBER(v_via_pa_w);
+	uint8_t vectrex_via_pb_r();
+	uint8_t vectrex_via_pa_r();
+	void v_via_pb_w(uint8_t data);
+	void v_via_pa_w(uint8_t data);
 	DECLARE_WRITE_LINE_MEMBER(v_via_ca2_w);
 	DECLARE_WRITE_LINE_MEMBER(v_via_cb2_w);
-	DECLARE_DEVICE_IMAGE_LOAD_MEMBER(vectrex_cart);
+	DECLARE_DEVICE_IMAGE_LOAD_MEMBER(cart_load);
 	DECLARE_WRITE_LINE_MEMBER(vectrex_via_irq);
 
 	void vectrex_base(machine_config &config);
@@ -96,7 +98,10 @@ protected:
 	emu_timer *m_imager_timer;
 	emu_timer *m_lp_t;
 
+	required_device<via6522_device> m_via6522_0;
+
 private:
+
 	struct vectrex_point
 	{
 		int x; int y;
@@ -137,8 +142,7 @@ private:
 	uint8_t m_cb2;
 	void (vectrex_base_state::*vector_add_point_function)(int, int, rgb_t, int);
 
-	required_device<via6522_device> m_via6522_0;
-	required_device<dac_byte_interface> m_dac;
+	required_device<mc1408_device> m_dac;
 	required_device<ay8910_device> m_ay8912;
 	required_device<vector_device> m_vector;
 	optional_ioport_array<4> m_io_contr;
@@ -179,8 +183,8 @@ public:
 	void raaspec(machine_config &config);
 
 protected:
-	DECLARE_WRITE8_MEMBER(raaspec_led_w);
-	DECLARE_READ8_MEMBER(vectrex_s1_via_pb_r);
+	void raaspec_led_w(uint8_t data);
+	uint8_t vectrex_s1_via_pb_r();
 
 	void raaspec_map(address_map &map);
 

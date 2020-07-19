@@ -27,14 +27,14 @@ protected:
 	void        device_reset() override;
 
 	// device_execute_interface overrides
-	uint32_t      execute_min_cycles() const override;
-	uint32_t      execute_max_cycles() const override;
-	uint32_t      execute_input_lines() const override;
+	uint32_t      execute_min_cycles() const noexcept override;
+	uint32_t      execute_max_cycles() const noexcept override;
+	uint32_t      execute_input_lines() const noexcept override;
 	void        execute_set_input(int irqline, int state) override;
 	void        execute_run() override;
 
 	// device_disasm_interface overrides
-	virtual util::disasm_interface *create_disassembler() override;
+	virtual std::unique_ptr<util::disasm_interface> create_disassembler() override;
 
 	virtual space_config_vector memory_space_config() const override;
 

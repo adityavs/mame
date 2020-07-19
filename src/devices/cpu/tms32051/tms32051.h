@@ -59,8 +59,8 @@ public:
 	// construction/destruction
 	tms32051_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
 
-	DECLARE_READ16_MEMBER( cpuregs_r );
-	DECLARE_WRITE16_MEMBER( cpuregs_w );
+	uint16_t cpuregs_r(offs_t offset);
+	void cpuregs_w(offs_t offset, uint16_t data);
 
 	void tms32051_internal_data(address_map &map);
 	void tms32051_internal_pgm(address_map &map);
@@ -72,9 +72,9 @@ protected:
 	virtual void device_reset() override;
 
 	// device_execute_interface overrides
-	virtual uint32_t execute_min_cycles() const override { return 1; }
-	virtual uint32_t execute_max_cycles() const override { return 5; }
-	virtual uint32_t execute_input_lines() const override { return 6; }
+	virtual uint32_t execute_min_cycles() const noexcept override { return 1; }
+	virtual uint32_t execute_max_cycles() const noexcept override { return 5; }
+	virtual uint32_t execute_input_lines() const noexcept override { return 6; }
 	virtual void execute_run() override;
 	virtual void execute_set_input(int inputnum, int state) override;
 
@@ -82,7 +82,7 @@ protected:
 	virtual space_config_vector memory_space_config() const override;
 
 	// device_disasm_interface overrides
-	virtual util::disasm_interface *create_disassembler() override;
+	virtual std::unique_ptr<util::disasm_interface> create_disassembler() override;
 
 	address_space_config m_program_config;
 	address_space_config m_data_config;
@@ -160,10 +160,10 @@ protected:
 		int32_t treg2;
 	} m_shadow;
 
-	address_space *m_program;
-	direct_read_data<-1> *m_direct;
-	address_space *m_data;
-	address_space *m_io;
+	memory_access<16, 1, -1, ENDIANNESS_LITTLE>::cache m_cache;
+	memory_access<16, 1, -1, ENDIANNESS_LITTLE>::specific m_program;
+	memory_access<16, 1, -1, ENDIANNESS_LITTLE>::specific m_data;
+	memory_access<16, 1, -1, ENDIANNESS_LITTLE>::specific m_io;
 	int m_icount;
 
 	bool m_idle;

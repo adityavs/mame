@@ -23,8 +23,8 @@ TILE_GET_INFO_MEMBER(flkatck_state::get_tile_info_A)
 	uint8_t ctrl_3 = m_k007121->ctrlram_r(3);
 	uint8_t ctrl_4 = m_k007121->ctrlram_r(4);
 	uint8_t ctrl_5 = m_k007121->ctrlram_r(5);
-	int attr = m_k007121_ram[tile_index];
-	int code = m_k007121_ram[tile_index + 0x400];
+	int attr = m_vram[tile_index];
+	int code = m_vram[tile_index + 0x400];
 	int bit0 = (ctrl_5 >> 0) & 0x03;
 	int bit1 = (ctrl_5 >> 2) & 0x03;
 	int bit2 = (ctrl_5 >> 4) & 0x03;
@@ -43,7 +43,7 @@ TILE_GET_INFO_MEMBER(flkatck_state::get_tile_info_A)
 		bank = 0;   /*  this allows the game to print text
 		            in all banks selected by the k007121 */
 
-	SET_TILE_INFO_MEMBER(0,
+	tileinfo.set(0,
 			code + 256*bank,
 			(attr & 0x0f) + 16,
 			(attr & 0x20) ? TILE_FLIPY : 0);
@@ -51,10 +51,10 @@ TILE_GET_INFO_MEMBER(flkatck_state::get_tile_info_A)
 
 TILE_GET_INFO_MEMBER(flkatck_state::get_tile_info_B)
 {
-	int attr = m_k007121_ram[tile_index + 0x800];
-	int code = m_k007121_ram[tile_index + 0xc00];
+	int attr = m_vram[tile_index + 0x800];
+	int code = m_vram[tile_index + 0xc00];
 
-	SET_TILE_INFO_MEMBER(0,
+	tileinfo.set(0,
 			code,
 			(attr & 0x0f) + 16,
 			0);
@@ -69,8 +69,8 @@ TILE_GET_INFO_MEMBER(flkatck_state::get_tile_info_B)
 
 void flkatck_state::video_start()
 {
-	m_k007121_tilemap[0] = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(FUNC(flkatck_state::get_tile_info_A),this), TILEMAP_SCAN_ROWS, 8, 8, 32, 32);
-	m_k007121_tilemap[1] = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(FUNC(flkatck_state::get_tile_info_B),this), TILEMAP_SCAN_ROWS, 8, 8, 32, 32);
+	m_k007121_tilemap[0] = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(*this, FUNC(flkatck_state::get_tile_info_A)), TILEMAP_SCAN_ROWS, 8, 8, 32, 32);
+	m_k007121_tilemap[1] = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(*this, FUNC(flkatck_state::get_tile_info_B)), TILEMAP_SCAN_ROWS, 8, 8, 32, 32);
 }
 
 
@@ -80,19 +80,16 @@ void flkatck_state::video_start()
 
 ***************************************************************************/
 
-WRITE8_MEMBER(flkatck_state::flkatck_k007121_w)
+void flkatck_state::vram_w(offs_t offset, uint8_t data)
 {
-	m_k007121_ram[offset] = data;
-	if (offset < 0x1000)    /* tiles */
-	{
-		if (offset & 0x800) /* score */
-			m_k007121_tilemap[1]->mark_tile_dirty(offset & 0x3ff);
-		else
-			m_k007121_tilemap[0]->mark_tile_dirty(offset & 0x3ff);
-	}
+	m_vram[offset] = data;
+	if (offset & 0x800) /* score */
+		m_k007121_tilemap[1]->mark_tile_dirty(offset & 0x3ff);
+	else
+		m_k007121_tilemap[0]->mark_tile_dirty(offset & 0x3ff);
 }
 
-WRITE8_MEMBER(flkatck_state::flkatck_k007121_regs_w)
+void flkatck_state::flkatck_k007121_regs_w(offs_t offset, uint8_t data)
 {
 	switch (offset)
 	{
@@ -108,7 +105,7 @@ WRITE8_MEMBER(flkatck_state::flkatck_k007121_regs_w)
 			break;
 	}
 
-	m_k007121->ctrl_w(space, offset, data);
+	m_k007121->ctrl_w(offset, data);
 }
 
 
@@ -118,17 +115,12 @@ WRITE8_MEMBER(flkatck_state::flkatck_k007121_regs_w)
 
 ***************************************************************************/
 
-/***************************************************************************
-
-    Flack Attack sprites. Each sprite has 16 bytes!:
-
-
-***************************************************************************/
-
 uint32_t flkatck_state::screen_update_flkatck(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect)
 {
 	rectangle clip[2];
 	const rectangle &visarea = screen.visible_area();
+	// TODO: reversed polarity? Hard to say, fwiw Combat School uses this in reverse ...
+	uint16_t sprite_buffer = (m_k007121->ctrlram_r(3) & 8) * 0x100;
 
 	if (m_flipscreen)
 	{
@@ -162,7 +154,7 @@ uint32_t flkatck_state::screen_update_flkatck(screen_device &screen, bitmap_ind1
 
 	/* draw the graphics */
 	m_k007121_tilemap[0]->draw(screen, bitmap, clip[0], 0, 0);
-	m_k007121->sprites_draw(bitmap, cliprect, m_gfxdecode->gfx(0), m_gfxdecode->palette(), &m_k007121_ram[0x1000], 0, 40, 0, screen.priority(), (uint32_t)-1, true);
+	m_k007121->sprites_draw(bitmap, cliprect, m_gfxdecode->gfx(0), m_gfxdecode->palette(), &m_spriteram[sprite_buffer], 0, 40, 0, screen.priority(), (uint32_t)-1, true);
 	m_k007121_tilemap[1]->draw(screen, bitmap, clip[1], 0, 0);
 	return 0;
 }

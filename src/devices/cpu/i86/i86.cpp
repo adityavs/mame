@@ -88,21 +88,19 @@ const uint8_t i8086_cpu_device::m_i8086_timing[] =
 
 /***************************************************************************/
 
-DEFINE_DEVICE_TYPE(I8086, i8086_cpu_device, "i8086", "I8086")
-DEFINE_DEVICE_TYPE(I8088, i8088_cpu_device, "i8088", "I8088")
+DEFINE_DEVICE_TYPE(I8086, i8086_cpu_device, "i8086", "Intel 8086")
+DEFINE_DEVICE_TYPE(I8088, i8088_cpu_device, "i8088", "Intel 8088")
 
 i8088_cpu_device::i8088_cpu_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock)
 	: i8086_cpu_device(mconfig, I8088, tag, owner, clock, 8)
 {
 	memcpy(m_timing, m_i8086_timing, sizeof(m_i8086_timing));
-	m_fetch_xor = 0;
 }
 
 i8086_cpu_device::i8086_cpu_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock)
 	: i8086_cpu_device(mconfig, I8086, tag, owner, clock, 16)
 {
 	memcpy(m_timing, m_i8086_timing, sizeof(m_i8086_timing));
-	m_fetch_xor = BYTE_XOR_LE(0);
 }
 
 i8086_cpu_device::i8086_cpu_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, uint32_t clock, int data_bus_size)
@@ -139,7 +137,7 @@ device_memory_interface::space_config_vector i8086_cpu_device::memory_space_conf
 uint8_t i8086_cpu_device::fetch()
 {
 	uint8_t data;
-	data = m_direct_opcodes->read_byte(update_pc(), m_fetch_xor);
+	data = m_or8(update_pc());
 	m_ip++;
 	return data;
 }
@@ -201,13 +199,21 @@ void i8086_cpu_device::execute_run()
 				{
 					interrupt(I8086_NMI_INT_VECTOR);
 					m_pending_irq &= ~NMI_IRQ;
+					m_halt = false;
 				}
 				else if ( m_IF )
 				{
 					/* the actual vector is retrieved after pushing flags */
 					/* and clearing the IF */
 					interrupt(-1);
+					m_halt = false;
 				}
+			}
+
+			if(m_halt)
+			{
+				m_icount = 0;
+				return;
 			}
 
 			/* Trap should allow one instruction to be executed.
@@ -237,7 +243,7 @@ void i8086_cpu_device::execute_run()
 
 		if (!m_seg_prefix)
 		{
-			debugger_instruction_hook( this, update_pc() );
+			debugger_instruction_hook( update_pc() );
 		}
 
 		uint8_t op = fetch_op();
@@ -311,7 +317,7 @@ void i8086_cpu_device::execute_run()
 			case 0xdd:
 			case 0xde:
 			case 0xdf:
-				m_esc_opcode_handler(m_pc - 1);
+				m_esc_opcode_handler(m_pc);
 				m_modrm = fetch();
 				if(m_modrm < 0xc0)
 					m_esc_data_handler(get_ea(1, I8086_READ));
@@ -353,7 +359,7 @@ void i8086_cpu_device::device_start()
 	state_add( I8086_VECTOR, "V", m_int_vector).formatstr("%02X");
 
 	state_add( I8086_PC, "PC", m_pc ).callimport().formatstr("%05X");
-	state_add( STATE_GENPCBASE, "CURPC", m_pc ).callimport().formatstr("%05X").noshow();
+	state_add<uint32_t>( STATE_GENPCBASE, "CURPC", [this] { return (m_sregs[CS] << 4) + m_prev_ip; }).mask(0xfffff).noshow();
 	state_add( I8086_HALT, "HALT", m_halt ).mask(1);
 }
 
@@ -415,10 +421,10 @@ void i8086_common_cpu_device::state_import(const device_state_entry &entry)
 		break;
 
 	case STATE_GENPC:
-	case STATE_GENPCBASE:
 		if (m_pc - (m_sregs[CS] << 4) > 0xffff)
 			m_sregs[CS] = m_pc >> 4;
 		m_ip = m_pc - (m_sregs[CS] << 4);
+		m_prev_ip = m_ip;
 		break;
 	}
 }
@@ -462,8 +468,14 @@ void i8086_common_cpu_device::device_start()
 {
 	m_program = &space(AS_PROGRAM);
 	m_opcodes = has_space(AS_OPCODES) ? &space(AS_OPCODES) : m_program;
-	m_direct = m_program->direct<0>();
-	m_direct_opcodes = m_opcodes->direct<0>();
+
+	if(m_opcodes->data_width() == 8) {
+		m_opcodes->cache(m_cache8);
+		m_or8 = [this](offs_t address) -> u8 { return m_cache8.read_byte(address); };
+	} else {
+		m_opcodes->cache(m_cache16);
+		m_or8 = [this](offs_t address) -> u8 { return m_cache16.read_byte(address); };
+	}
 	m_io = &space(AS_IO);
 
 	save_item(NAME(m_regs.w));
@@ -494,7 +506,7 @@ void i8086_common_cpu_device::device_start()
 	// Register state for debugger
 	state_add( I8086_IP, "IP", m_ip         ).callimport().formatstr("%04X");
 	state_add( I8086_AX, "AX", m_regs.w[AX] ).formatstr("%04X");
-	state_add( I8086_CX, "CX", m_regs.w[CS] ).formatstr("%04X");
+	state_add( I8086_CX, "CX", m_regs.w[CX] ).formatstr("%04X");
 	state_add( I8086_DX, "DX", m_regs.w[DX] ).formatstr("%04X");
 	state_add( I8086_BX, "BX", m_regs.w[BX] ).formatstr("%04X");
 	state_add( I8086_SP, "SP", m_regs.w[SP] ).formatstr("%04X");
@@ -502,9 +514,18 @@ void i8086_common_cpu_device::device_start()
 	state_add( I8086_SI, "SI", m_regs.w[SI] ).formatstr("%04X");
 	state_add( I8086_DI, "DI", m_regs.w[DI] ).formatstr("%04X");
 
+	state_add( I8086_AL, "AL", m_regs.b[AL] ).noshow();
+	state_add( I8086_AH, "AH", m_regs.b[AH] ).noshow();
+	state_add( I8086_CL, "CL", m_regs.b[CL] ).noshow();
+	state_add( I8086_CH, "CH", m_regs.b[CH] ).noshow();
+	state_add( I8086_DL, "DL", m_regs.b[DL] ).noshow();
+	state_add( I8086_DH, "DH", m_regs.b[DH] ).noshow();
+	state_add( I8086_BL, "BL", m_regs.b[BL] ).noshow();
+	state_add( I8086_BH, "BH", m_regs.b[BH] ).noshow();
+
 	state_add(STATE_GENFLAGS, "GENFLAGS", m_TF).formatstr("%16s").noshow();
 
-	m_icountptr = &m_icount;
+	set_icountptr(m_icount);
 
 	m_lock_handler.resolve_safe();
 }
@@ -565,12 +586,8 @@ void i8086_common_cpu_device::interrupt(int int_num, int trap)
 	m_TF = m_IF = 0;
 
 	if (int_num == -1)
-	{
 		int_num = standard_irq_callback(0);
-
-		m_irq_state = CLEAR_LINE;
-		m_pending_irq &= ~INT_IRQ;
-	}
+	debugger_exception_hook(int_num);
 
 	m_easeg = CS;
 	uint16_t dest_off = read_word(int_num * 4 + 0);
@@ -578,7 +595,7 @@ void i8086_common_cpu_device::interrupt(int int_num, int trap)
 
 	PUSH(m_sregs[CS]);
 	PUSH(m_ip);
-	m_ip = dest_off;
+	m_prev_ip = m_ip = dest_off;
 	m_sregs[CS] = dest_seg;
 }
 
@@ -615,9 +632,9 @@ void i8086_common_cpu_device::execute_set_input( int inptnum, int state )
 	}
 }
 
-util::disasm_interface *i8086_common_cpu_device::create_disassembler()
+std::unique_ptr<util::disasm_interface> i8086_common_cpu_device::create_disassembler()
 {
-	return new i386_disassembler(this);
+	return std::make_unique<i386_disassembler>(this);
 }
 
 int i8086_common_cpu_device::get_mode() const
@@ -2144,7 +2161,7 @@ bool i8086_common_cpu_device::common_op(uint8_t op)
 
 		case 0xf0: // i_lock
 		case 0xf1: // 0xf1 is 0xf0; verified on real CPU
-			logerror("%06x: Warning - BUSLOCK\n", m_pc);
+			//logerror("%06x: Warning - BUSLOCK\n", m_pc); // Why warn for using lock instruction?
 			m_lock = true;
 			m_no_interrupt = 1;
 			CLK(NOP);
@@ -2249,10 +2266,10 @@ bool i8086_common_cpu_device::common_op(uint8_t op)
 					CLKM(NEGNOT_R8,NEGNOT_M8);
 					break;
 				case 0x18:  /* NEG */
-					m_CarryVal = (tmp!=0) ? 1 : 0;
-					tmp = (~tmp)+1;
-					set_SZPF_Byte(tmp);
-					PutbackRMByte(tmp&0xff);
+					m_dst = 0;
+					m_src = tmp;
+					set_CFB(SUBB());
+					PutbackRMByte(m_dst);
 					CLKM(NEGNOT_R8,NEGNOT_M8);
 					break;
 				case 0x20:  /* MUL */
@@ -2339,10 +2356,10 @@ bool i8086_common_cpu_device::common_op(uint8_t op)
 					CLKM(NEGNOT_R16,NEGNOT_M16);
 					break;
 				case 0x18:  /* NEG */
-					m_CarryVal = (tmp!=0) ? 1 : 0;
-					tmp = (~tmp) + 1;
-					set_SZPF_Word(tmp);
-					PutbackRMWord(tmp);
+					m_dst = 0;
+					m_src = tmp;
+					set_CFW(SUBX());
+					PutbackRMWord(m_dst);
 					CLKM(NEGNOT_R16,NEGNOT_M16);
 					break;
 				case 0x20:  /* MUL */
@@ -2425,6 +2442,7 @@ bool i8086_common_cpu_device::common_op(uint8_t op)
 
 		case 0xfb: // i_sti
 			m_IF = 1;
+			m_no_interrupt = 1;
 			CLK(FLAG_OPS);
 			break;
 
@@ -2518,6 +2536,7 @@ bool i8086_common_cpu_device::common_op(uint8_t op)
 					CLKM(PUSH_R16,PUSH_M16);
 					break;
 				default:
+					m_icount -= 10;
 					logerror("%06x: FF Pre with unimplemented mod\n", m_pc);
 					break;
 				}

@@ -5,15 +5,6 @@
 
 #pragma once
 
-#define MCFG_PATINHO_RC_READ_CB(_devcb) \
-	devcb = &downcast<patinho_feio_cpu_device &>(*device).set_rc_read_callback(DEVCB_##_devcb);
-#define MCFG_PATINHO_BUTTONS_READ_CB(_devcb) \
-	devcb = &downcast<patinho_feio_cpu_device &>(*device).set_buttons_read_callback(DEVCB_##_devcb);
-#define MCFG_PATINHO_IODEV_READ_CB(devnumber, _devcb) \
-	devcb = &downcast<patinho_feio_cpu_device &>(*device).set_iodev_read_callback(devnumber, DEVCB_##_devcb);
-#define MCFG_PATINHO_IODEV_WRITE_CB(devnumber, _devcb) \
-	devcb = &downcast<patinho_feio_cpu_device &>(*device).set_iodev_write_callback(devnumber, DEVCB_##_devcb);
-
 /* register IDs */
 enum
 {
@@ -53,11 +44,11 @@ public:
 	// construction/destruction
 	patinho_feio_cpu_device(const machine_config &mconfig, const char *_tag, device_t *_owner, uint32_t _clock);
 
-	template <class Object> devcb_base &set_rc_read_callback(Object &&cb) { return m_rc_read_cb.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_buttons_read_callback(Object &&cb) { return m_buttons_read_cb.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_iodev_read_callback(int devnumber, Object &&cb) { return m_iodev_read_cb[devnumber].set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_iodev_write_callback(int devnumber, Object &&cb) { return m_iodev_write_cb[devnumber].set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_iodev_status_callback(int devnumber, Object &&cb) { return m_iodev_status_cb[devnumber].set_callback(std::forward<Object>(cb)); }
+	auto rc_read() { return m_rc_read_cb.bind(); }
+	auto buttons_read() { return m_buttons_read_cb.bind(); }
+	template <std::size_t DevNumber> auto iodev_read() { return m_iodev_read_cb[DevNumber].bind(); }
+	template <std::size_t DevNumber> auto iodev_write() { return m_iodev_write_cb[DevNumber].bind(); }
+	template <std::size_t DevNumber> auto iodev_status() { return m_iodev_status_cb[DevNumber].bind(); }
 
 	void transfer_byte_from_external_device(uint8_t channel, uint8_t data);
 	void set_iodev_status(uint8_t channel, bool status) { m_iodev_status[channel] = status; }
@@ -66,7 +57,7 @@ public:
 protected:
 
 	virtual void execute_run() override;
-	virtual util::disasm_interface *create_disassembler() override;
+	virtual std::unique_ptr<util::disasm_interface> create_disassembler() override;
 
 	address_space_config m_program_config;
 
@@ -116,8 +107,8 @@ protected:
 	virtual void device_reset() override;
 
 	// device_execute_interface overrides
-	virtual uint32_t execute_min_cycles() const override { return 1; }
-	virtual uint32_t execute_max_cycles() const override { return 2; }
+	virtual uint32_t execute_min_cycles() const noexcept override { return 1; }
+	virtual uint32_t execute_max_cycles() const noexcept override { return 2; }
 
 	// device_memory_interface overrides
 	virtual space_config_vector memory_space_config() const override;
@@ -129,9 +120,9 @@ private:
 	uint16_t read_panel_keys_register();
 	devcb_read16 m_rc_read_cb;
 	devcb_read16 m_buttons_read_cb;
-	devcb_read8 m_iodev_read_cb[16];
-	devcb_write8 m_iodev_write_cb[16];
-	devcb_read8 m_iodev_status_cb[16];
+	devcb_read8::array<16> m_iodev_read_cb;
+	devcb_write8::array<16> m_iodev_write_cb;
+	devcb_read8::array<16> m_iodev_status_cb;
 	uint8_t m_mode;
 };
 

@@ -1,18 +1,23 @@
 // license:BSD-3-Clause
 // copyright-holders:Hau
+#ifndef MAME_INCLUDES_QDRMFGP_H
+#define MAME_INCLUDES_QDRMFGP_H
 
-#include "machine/ataintf.h"
+#pragma once
+
+#include "bus/ata/ataintf.h"
 #include "machine/timer.h"
 #include "sound/k054539.h"
 #include "machine/k053252.h"
 #include "video/konami_helper.h"
 #include "video/k054156_k054157_k056832.h"
+#include "emupal.h"
 
 class qdrmfgp_state : public driver_device
 {
 public:
-	qdrmfgp_state(const machine_config &mconfig, device_type type, const char *tag)
-		: driver_device(mconfig, type, tag),
+	qdrmfgp_state(const machine_config &mconfig, device_type type, const char *tag) :
+		driver_device(mconfig, type, tag),
 		m_maincpu(*this, "maincpu"),
 		m_nvram(*this, "nvram"),
 		m_workram(*this, "workram"),
@@ -53,17 +58,16 @@ private:
 	int32_t m_pal;
 	emu_timer *m_gp2_timer;
 
-	DECLARE_WRITE16_MEMBER(gp_control_w);
-	DECLARE_WRITE16_MEMBER(gp2_control_w);
-	DECLARE_READ16_MEMBER(v_rom_r);
-	DECLARE_READ16_MEMBER(gp2_vram_r);
-	DECLARE_READ16_MEMBER(gp2_vram_mirror_r);
-	DECLARE_WRITE16_MEMBER(gp2_vram_w);
-	DECLARE_WRITE16_MEMBER(gp2_vram_mirror_w);
-	DECLARE_READ16_MEMBER(sndram_r);
-	DECLARE_WRITE16_MEMBER(sndram_w);
-	DECLARE_READ16_MEMBER(gp2_ide_std_r);
-	DECLARE_READ16_MEMBER(inputs_r);
+	void gp_control_w(offs_t offset, uint16_t data, uint16_t mem_mask = ~0);
+	void gp2_control_w(offs_t offset, uint16_t data, uint16_t mem_mask = ~0);
+	uint16_t v_rom_r(offs_t offset);
+	uint16_t gp2_vram_r(offs_t offset);
+	uint16_t gp2_vram_mirror_r(offs_t offset);
+	void gp2_vram_w(offs_t offset, uint16_t data, uint16_t mem_mask = ~0);
+	void gp2_vram_mirror_w(offs_t offset, uint16_t data, uint16_t mem_mask = ~0);
+	uint16_t sndram_r(offs_t offset, uint16_t mem_mask = ~0);
+	void sndram_w(offs_t offset, uint16_t data, uint16_t mem_mask = ~0);
+	uint16_t inputs_r();
 
 	DECLARE_MACHINE_START(qdrmfgp);
 	DECLARE_VIDEO_START(qdrmfgp);
@@ -84,3 +88,5 @@ private:
 	void qdrmfgp_k054539_map(address_map &map);
 	void qdrmfgp_map(address_map &map);
 };
+
+#endif // MAME_INCLUDES_QDRMFGP_H

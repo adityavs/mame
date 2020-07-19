@@ -14,50 +14,18 @@
 #include "machine/pic8259.h"
 #include "machine/pit8253.h"
 
-
-
-///*************************************************************************
-//  INTERFACE CONFIGURATION MACROS
-///*************************************************************************
-
-#define MCFG_I80130_IRQ_CALLBACK(_write) \
-	devcb = &downcast<i80130_device &>(*device).set_irq_wr_callback(DEVCB_##_write);
-
-#define MCFG_I80130_ACK_CALLBACK(_write) \
-	devcb = &downcast<i80130_device &>(*device).set_ack_wr_callback(DEVCB_##_write);
-
-#define MCFG_I80130_LIR_CALLBACK(_write) \
-	devcb = &downcast<i80130_device &>(*device).set_lir_wr_callback(DEVCB_##_write);
-
-#define MCFG_I80130_SYSTICK_CALLBACK(_write) \
-	devcb = &downcast<i80130_device &>(*device).set_systick_wr_callback(DEVCB_##_write);
-
-#define MCFG_I80130_DELAY_CALLBACK(_write) \
-	devcb = &downcast<i80130_device &>(*device).set_delay_wr_callback(DEVCB_##_write);
-
-#define MCFG_I80130_BAUD_CALLBACK(_write) \
-	devcb = &downcast<i80130_device &>(*device).set_baud_wr_callback(DEVCB_##_write);
-
-
-
-///*************************************************************************
-//  TYPE DEFINITIONS
-///*************************************************************************
-
-// ======================> i80130_device
-
 class i80130_device :  public device_t
 {
 public:
 	// construction/destruction
 	i80130_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
 
-	template <class Object> devcb_base &set_irq_wr_callback(Object &&cb) { return m_write_irq.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_ack_wr_callback(Object &&cb) { return m_write_ack.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_lir_wr_callback(Object &&cb) { return m_write_lir.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_systick_wr_callback(Object &&cb) { return m_write_systick.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_delay_wr_callback(Object &&cb) { return m_write_delay.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_baud_wr_callback(Object &&cb) { return m_write_baud.set_callback(std::forward<Object>(cb)); }
+	auto irq() { return m_write_irq.bind(); }
+	auto ack() { return m_write_ack.bind(); }
+	auto lir() { return m_write_lir.bind(); }
+	auto systick() { return m_write_systick.bind(); }
+	auto delay() { return m_write_delay.bind(); }
+	auto baud() { return m_write_baud.bind(); }
 
 	virtual void rom_map(address_map &map);
 	virtual void io_map(address_map &map);
@@ -78,7 +46,7 @@ protected:
 	virtual void device_start() override;
 	virtual void device_reset() override;
 	// optional information overrides
-	virtual const tiny_rom_entry *device_rom_region() const override;
+//  virtual const tiny_rom_entry *device_rom_region() const override;
 	virtual void device_add_mconfig(machine_config &config) override;
 
 private:
@@ -97,8 +65,8 @@ private:
 	DECLARE_WRITE_LINE_MEMBER( delay_w ) { m_write_delay(state); }
 	DECLARE_WRITE_LINE_MEMBER( baud_w ) { m_write_baud(state); }
 
-	DECLARE_READ16_MEMBER( io_r );
-	DECLARE_WRITE16_MEMBER( io_w );
+	uint16_t io_r(offs_t offset, uint16_t mem_mask = ~0);
+	void io_w(offs_t offset, uint16_t data, uint16_t mem_mask = ~0);
 };
 
 

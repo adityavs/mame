@@ -1,5 +1,5 @@
 // license:BSD-3-Clause
-// copyright-holders:Bryan McPhail, Aaron Giles, R. Belmont, hap, Philip Bennett
+// copyright-holders:Bryan McPhail, Aaron Giles, R. Belmont, Philip Bennett
 /***************************************************************************
 
     Taito Ensoniq ES5505-based sound hardware
@@ -43,7 +43,6 @@ taito_en_device::taito_en_device(const machine_config &mconfig, const char *tag,
 void taito_en_device::device_start()
 {
 	// tell the pump about the ESP chips
-	m_pump->set_esp(m_esp);
 	uint8_t *ROM = m_osrom->base();
 	uint32_t max = (m_osrom->bytes() - 0x100000) / 0x20000;
 	for (int i = 0; i < 3; i++)
@@ -66,10 +65,6 @@ void taito_en_device::device_reset()
 
 	uint16_t *ROM = (uint16_t *)m_osrom->base();
 	std::copy(&ROM[0x80000], &ROM[0x80004], &m_osram[0]); /* Stack and Reset vectors */
-
-	/* reset CPU to catch any banking of startup vectors */
-	m_audiocpu->reset();
-	m_audiocpu->set_input_line(INPUT_LINE_RESET, ASSERT_LINE);
 }
 
 
@@ -79,16 +74,16 @@ void taito_en_device::device_reset()
  *
  *************************************/
 
-WRITE16_MEMBER( taito_en_device::en_es5505_bank_w )
+void taito_en_device::en_es5505_bank_w(offs_t offset, uint16_t data)
 {
 	/* mask out unused bits */
 	data &= m_bankmask;
 	m_ensoniq->voice_bank_w(offset,data<<20);
 }
 
-WRITE8_MEMBER( taito_en_device::en_volume_w )
+void taito_en_device::en_volume_w(offs_t offset, uint8_t data)
 {
-	m_mb87078->data_w(data, offset ^ 1);
+	m_mb87078->data_w(offset ^ 1, data);
 }
 
 
@@ -98,19 +93,25 @@ WRITE8_MEMBER( taito_en_device::en_volume_w )
  *
  *************************************/
 
-ADDRESS_MAP_START(taito_en_device::en_sound_map)
-	AM_RANGE(0x000000, 0x00ffff) AM_RAM AM_MIRROR(0x30000) AM_SHARE("osram")
-	AM_RANGE(0x140000, 0x140fff) AM_DEVREADWRITE8("dpram", mb8421_device, right_r, right_w, 0xff00)
-	AM_RANGE(0x200000, 0x20001f) AM_DEVREADWRITE("ensoniq", es5505_device, read, write)
-	AM_RANGE(0x260000, 0x2601ff) AM_DEVREADWRITE8("esp", es5510_device, host_r, host_w, 0x00ff)
-	AM_RANGE(0x280000, 0x28001f) AM_DEVREADWRITE8("duart68681", mc68681_device, read, write, 0x00ff)
-	AM_RANGE(0x300000, 0x30003f) AM_WRITE(en_es5505_bank_w)
-	AM_RANGE(0x340000, 0x340003) AM_WRITE8(en_volume_w, 0xff00)
-	AM_RANGE(0xc00000, 0xc1ffff) AM_ROMBANK("cpubank1")
-	AM_RANGE(0xc20000, 0xc3ffff) AM_ROMBANK("cpubank2")
-	AM_RANGE(0xc40000, 0xc7ffff) AM_ROMBANK("cpubank3")
-	AM_RANGE(0xff0000, 0xffffff) AM_RAM AM_SHARE("osram")  // mirror
-ADDRESS_MAP_END
+void taito_en_device::en_sound_map(address_map &map)
+{
+	map(0x000000, 0x00ffff).ram().mirror(0x30000).share("osram");
+	map(0x140000, 0x140fff).rw("dpram", FUNC(mb8421_device::right_r), FUNC(mb8421_device::right_w)).umask16(0xff00);
+	map(0x200000, 0x20001f).rw("ensoniq", FUNC(es5505_device::read), FUNC(es5505_device::write));
+	map(0x260000, 0x2601ff).rw("esp", FUNC(es5510_device::host_r), FUNC(es5510_device::host_w)).umask16(0x00ff);
+	map(0x280000, 0x28001f).rw("duart68681", FUNC(mc68681_device::read), FUNC(mc68681_device::write)).umask16(0x00ff);
+	map(0x300000, 0x30003f).w(FUNC(taito_en_device::en_es5505_bank_w));
+	map(0x340000, 0x340003).w(FUNC(taito_en_device::en_volume_w)).umask16(0xff00);
+	map(0xc00000, 0xc1ffff).bankr("cpubank1");
+	map(0xc20000, 0xc3ffff).bankr("cpubank2");
+	map(0xc40000, 0xc7ffff).bankr("cpubank3");
+	map(0xff0000, 0xffffff).ram().share("osram");  // mirror
+}
+
+void taito_en_device::fc7_map(address_map &map)
+{
+	map(0xfffffd, 0xfffffd).r(m_duart68681, FUNC(mc68681_device::get_irq_vector));
+}
 
 
 /*************************************
@@ -119,37 +120,29 @@ ADDRESS_MAP_END
  *
  *************************************/
 
-WRITE8_MEMBER(taito_en_device::mb87078_gain_changed)
+void taito_en_device::mb87078_gain_changed(offs_t offset, uint8_t data)
 {
 	if (offset > 1)
 	{
 		// TODO : ES5505 Volume control is correct?
-		m_ensoniq->set_output_gain(offset & 1, data / 100.0);
-		m_ensoniq->set_output_gain(2|(offset & 1), data / 100.0);
-		m_ensoniq->set_output_gain(4|(offset & 1), data / 100.0);
-		m_ensoniq->set_output_gain(6|(offset & 1), data / 100.0);
-		m_pump->set_output_gain(offset & 1, data / 100.0);
+		m_ensoniq->set_output_gain(offset & 1, data / 32.0);
+		m_ensoniq->set_output_gain(2|(offset & 1), data / 32.0);
+		m_ensoniq->set_output_gain(4|(offset & 1), data / 32.0);
+		m_ensoniq->set_output_gain(6|(offset & 1), data / 32.0);
+		m_pump->set_output_gain(offset & 1, data / 32.0);
 	}
 }
 
 
 /*************************************
  *
- *  M68681 callback
+ *  ES5510 callback
  *
  *************************************/
 
-WRITE_LINE_MEMBER(taito_en_device::duart_irq_handler)
+void taito_en_device::es5505_clock_changed(u32 data)
 {
-	if (state == ASSERT_LINE)
-	{
-		m_audiocpu->set_input_line_vector(M68K_IRQ_6, m_duart68681->get_irq_vector());
-		m_audiocpu->set_input_line(M68K_IRQ_6, ASSERT_LINE);
-	}
-	else
-	{
-		m_audiocpu->set_input_line(M68K_IRQ_6, CLEAR_LINE);
-	}
+	m_pump->set_unscaled_clock(data);
 }
 
 
@@ -171,7 +164,7 @@ WRITE_LINE_MEMBER(taito_en_device::duart_irq_handler)
     IP5: 1MHz
 */
 
-WRITE8_MEMBER(taito_en_device::duart_output)
+void taito_en_device::duart_output(uint8_t data)
 {
 	if (data & 0x40)
 	{
@@ -195,42 +188,46 @@ WRITE8_MEMBER(taito_en_device::duart_output)
 // device_add_mconfig - add device configuration
 //-------------------------------------------------
 
-MACHINE_CONFIG_START(taito_en_device::device_add_mconfig)
-
+void taito_en_device::device_add_mconfig(machine_config &config)
+{
 	/* basic machine hardware */
-	MCFG_CPU_ADD("audiocpu", M68000, XTAL(30'476'100) / 2)
-	MCFG_CPU_PROGRAM_MAP(en_sound_map)
+	M68000(config, m_audiocpu, XTAL(30'476'180) / 2);
+	m_audiocpu->set_addrmap(AS_PROGRAM, &taito_en_device::en_sound_map);
+	m_audiocpu->set_addrmap(m68000_device::AS_CPU_SPACE, &taito_en_device::fc7_map);
 
-	MCFG_CPU_ADD("esp", ES5510, XTAL(10'000'000)) // from Gun Buster schematics
-	MCFG_DEVICE_DISABLE()
+	ES5510(config, m_esp, XTAL(10'000'000)); // from Gun Buster schematics
+	m_esp->set_disable();
 
-	MCFG_DEVICE_ADD("duart68681", MC68681, XTAL(16'000'000) / 4)
-	MCFG_MC68681_SET_EXTERNAL_CLOCKS(XTAL(16'000'000)/2/8, XTAL(16'000'000)/2/16, XTAL(16'000'000)/2/16, XTAL(16'000'000)/2/8)
-	MCFG_MC68681_IRQ_CALLBACK(WRITELINE(taito_en_device, duart_irq_handler))
-	MCFG_MC68681_OUTPORT_CALLBACK(WRITE8(taito_en_device, duart_output))
+	MC68681(config, m_duart68681, XTAL(16'000'000) / 4);
+	m_duart68681->set_clocks(XTAL(16'000'000)/2/8, XTAL(16'000'000)/2/16, XTAL(16'000'000)/2/16, XTAL(16'000'000)/2/8);
+	m_duart68681->irq_cb().set_inputline(m_audiocpu, M68K_IRQ_6);
+	m_duart68681->outport_cb().set(FUNC(taito_en_device::duart_output));
 
-	MCFG_DEVICE_ADD("mb87078", MB87078, 0)
-	MCFG_MB87078_GAIN_CHANGED_CB(WRITE8(taito_en_device, mb87078_gain_changed))
+	MB87078(config, m_mb87078);
+	m_mb87078->gain_changed().set(FUNC(taito_en_device::mb87078_gain_changed));
 
-	MCFG_DEVICE_ADD("dpram", MB8421, 0) // host accesses this from the other side
+	MB8421(config, "dpram", 0); // host accesses this from the other side
 
 	/* sound hardware */
-	MCFG_SPEAKER_STANDARD_STEREO("lspeaker", "rspeaker")
+	SPEAKER(config, "lspeaker").front_left();
+	SPEAKER(config, "rspeaker").front_right();
 
-	MCFG_SOUND_ADD("pump", ESQ_5505_5510_PUMP, XTAL(30'476'100) / (2 * 16 * 32))
-	MCFG_SOUND_ROUTE(0, "lspeaker", 1.0)
-	MCFG_SOUND_ROUTE(1, "rspeaker", 1.0)
+	ESQ_5505_5510_PUMP(config, m_pump, XTAL(30'476'180) / (2 * 16 * 32));
+	m_pump->set_esp(m_esp);
+	m_pump->add_route(0, "lspeaker", 1.0);
+	m_pump->add_route(1, "rspeaker", 1.0);
 
-	MCFG_SOUND_ADD("ensoniq", ES5505, XTAL(30'476'100) / 2)
-	MCFG_ES5505_REGION0("ensoniq.0")
-	MCFG_ES5505_REGION1("ensoniq.0")
-	MCFG_ES5505_CHANNELS(4)
-	MCFG_SOUND_ROUTE_EX(0, "pump", 1.0, 0)
-	MCFG_SOUND_ROUTE_EX(1, "pump", 1.0, 1)
-	MCFG_SOUND_ROUTE_EX(2, "pump", 1.0, 2)
-	MCFG_SOUND_ROUTE_EX(3, "pump", 1.0, 3)
-	MCFG_SOUND_ROUTE_EX(4, "pump", 1.0, 4)
-	MCFG_SOUND_ROUTE_EX(5, "pump", 1.0, 5)
-	MCFG_SOUND_ROUTE_EX(6, "pump", 1.0, 6)
-	MCFG_SOUND_ROUTE_EX(7, "pump", 1.0, 7)
-MACHINE_CONFIG_END
+	ES5505(config, m_ensoniq, XTAL(30'476'180) / 2);
+	m_ensoniq->sample_rate_changed().set(FUNC(taito_en_device::es5505_clock_changed));
+	m_ensoniq->set_region0("ensoniq.0");
+	m_ensoniq->set_region1("ensoniq.0");
+	m_ensoniq->set_channels(4);
+	m_ensoniq->add_route(0, "pump", 1.0, 0);
+	m_ensoniq->add_route(1, "pump", 1.0, 1);
+	m_ensoniq->add_route(2, "pump", 1.0, 2);
+	m_ensoniq->add_route(3, "pump", 1.0, 3);
+	m_ensoniq->add_route(4, "pump", 1.0, 4);
+	m_ensoniq->add_route(5, "pump", 1.0, 5);
+	m_ensoniq->add_route(6, "pump", 1.0, 6);
+	m_ensoniq->add_route(7, "pump", 1.0, 7);
+}

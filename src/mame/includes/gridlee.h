@@ -14,6 +14,7 @@
 
 #include "sound/samples.h"
 #include "machine/74259.h"
+#include "emupal.h"
 #include "screen.h"
 
 
@@ -38,22 +39,20 @@ public:
 		m_maincpu(*this, "maincpu"),
 		m_latch(*this, "latch"),
 		m_screen(*this, "screen"),
-		m_palette(*this, "palette")
+		m_palette(*this, "palette"),
+		m_samples(*this, "samples")
 	{ }
 
 	void gridlee(machine_config &config);
 
-protected:
-	DECLARE_READ8_MEMBER(analog_port_r);
-	DECLARE_READ8_MEMBER(random_num_r);
-	DECLARE_WRITE8_MEMBER(latch_w);
-	DECLARE_WRITE_LINE_MEMBER(led_0_w);
-	DECLARE_WRITE_LINE_MEMBER(led_1_w);
+private:
+	uint8_t analog_port_r(offs_t offset);
+	uint8_t random_num_r();
 	DECLARE_WRITE_LINE_MEMBER(coin_counter_w);
 	DECLARE_WRITE_LINE_MEMBER(cocktail_flip_w);
-	DECLARE_WRITE8_MEMBER(gridlee_videoram_w);
-	DECLARE_WRITE8_MEMBER(gridlee_palette_select_w);
-	DECLARE_PALETTE_INIT(gridlee);
+	void gridlee_videoram_w(offs_t offset, uint8_t data);
+	void gridlee_palette_select_w(uint8_t data);
+	void gridlee_palette(palette_device &palette) const;
 	uint32_t screen_update_gridlee(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
 	TIMER_CALLBACK_MEMBER(irq_off_tick);
 	TIMER_CALLBACK_MEMBER(irq_timer_tick);
@@ -67,13 +66,13 @@ protected:
 	virtual void machine_reset() override;
 	virtual void video_start() override;
 
-private:
 	required_shared_ptr<uint8_t> m_spriteram;
 	required_shared_ptr<uint8_t> m_videoram;
 	required_device<cpu_device> m_maincpu;
 	required_device<ls259_device> m_latch;
 	required_device<screen_device> m_screen;
 	required_device<palette_device> m_palette;
+	required_device<samples_device> m_samples;
 
 	uint8_t m_last_analog_input[2];
 	uint8_t m_last_analog_output[2];
@@ -89,7 +88,7 @@ private:
 };
 
 
-/*----------- defined in audio/gridlee.c -----------*/
+/*----------- defined in audio/gridlee.cpp -----------*/
 
 class gridlee_sound_device : public device_t, public device_sound_interface
 {
@@ -105,7 +104,7 @@ protected:
 	virtual void sound_stream_update(sound_stream &stream, stream_sample_t **inputs, stream_sample_t **outputs, int samples) override;
 
 public:
-	DECLARE_WRITE8_MEMBER( gridlee_sound_w );
+	void gridlee_sound_w(offs_t offset, uint8_t data);
 
 private:
 	/* tone variables */
@@ -115,7 +114,7 @@ private:
 
 	/* sound streaming variables */
 	sound_stream *m_stream;
-	samples_device *m_samples;
+	required_device<samples_device> m_samples;
 	double m_freq_to_step;
 	uint8_t m_sound_data[24];
 };

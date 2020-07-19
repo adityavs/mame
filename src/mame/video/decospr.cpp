@@ -118,6 +118,8 @@ ssssSSSS pppccccc
 
 s = size (height)
 S = size (width)
+p = priority
+c = colour palette
 
 offs +3
 -------- --------
@@ -142,25 +144,25 @@ DECOSPR_COLOUR_CB_MEMBER(decospr_device::default_col_cb)
 DEFINE_DEVICE_TYPE(DECO_SPRITE, decospr_device, "decospr", "DECO 52 Sprite")
 
 decospr_device::decospr_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock)
-	: device_t(mconfig, DECO_SPRITE, tag, owner, clock),
-		device_video_interface(mconfig, *this),
-		m_gfxregion(0),
-		m_is_bootleg(false),
-		m_bootleg_type(0),
-		m_x_offset(0),
-		m_y_offset(0),
-		m_flipallx(0),
-		m_transpen(0),
-		m_gfxdecode(*this, finder_base::DUMMY_TAG)
+	: device_t(mconfig, DECO_SPRITE, tag, owner, clock)
+	, device_video_interface(mconfig, *this)
+	, m_gfxregion(0)
+	, m_pri_cb(*this)
+	, m_col_cb(*this, DEVICE_SELF, FUNC(decospr_device::default_col_cb)) // default color callback
+	, m_is_bootleg(false)
+	, m_bootleg_type(0)
+	, m_x_offset(0)
+	, m_y_offset(0)
+	, m_flipallx(0)
+	, m_transpen(0)
+	, m_gfxdecode(*this, finder_base::DUMMY_TAG)
 {
-	// default color callback
-	m_col_cb =  decospr_col_cb_delegate(FUNC(decospr_device::default_col_cb), this);
 }
 
 void decospr_device::device_start()
 {
-	m_pri_cb.bind_relative_to(*owner());
-	m_col_cb.bind_relative_to(*owner());
+	m_pri_cb.resolve();
+	m_col_cb.resolve();
 
 	m_alt_format = 0;
 	m_pixmask = 0xf;
@@ -183,7 +185,7 @@ void decospr_device::alloc_sprite_bitmap()
 template<class _BitmapClass>
 void decospr_device::draw_sprites_common(_BitmapClass &bitmap, const rectangle &cliprect, uint16_t* spriteram, int sizewords)
 {
-	//printf("cliprect %04x, %04x\n", cliprect.min_y, cliprect.max_y);
+	//printf("cliprect %04x, %04x\n", cliprect.top(), cliprect.bottom());
 
 	if (m_sprite_bitmap.valid() && !m_pri_cb.isnull())
 		fatalerror("m_sprite_bitmap && m_pri_cb is invalid\n");
@@ -237,7 +239,7 @@ void decospr_device::draw_sprites_common(_BitmapClass &bitmap, const rectangle &
 
 				if (!m_sprite_bitmap.valid())
 				{
-					colour = m_col_cb(x);
+					colour = m_col_cb(x, y & 0x8000);
 				}
 				else
 				{
@@ -247,7 +249,7 @@ void decospr_device::draw_sprites_common(_BitmapClass &bitmap, const rectangle &
 
 
 				if (!m_pri_cb.isnull())
-					pri = m_pri_cb(x);
+					pri = m_pri_cb(x, y & 0x8000);
 				else
 					pri = 0;
 
@@ -274,7 +276,7 @@ void decospr_device::draw_sprites_common(_BitmapClass &bitmap, const rectangle &
 				y = ((y&0x1ff) + m_y_offset)&0x1ff;
 
 
-				if (cliprect.max_x>256)
+				if (cliprect.right()>256)
 				{
 					x = x & 0x01ff;
 					y = y & 0x01ff;
@@ -318,7 +320,7 @@ void decospr_device::draw_sprites_common(_BitmapClass &bitmap, const rectangle &
 
 					if (flipscreen ^ m_flipallx)
 					{
-						if (cliprect.max_x>256)
+						if (cliprect.right()>256)
 							x = 304 - x;
 						else
 							x = 240 - x;
@@ -334,11 +336,11 @@ void decospr_device::draw_sprites_common(_BitmapClass &bitmap, const rectangle &
 					{
 						int ypos;
 						ypos = y + mult * multi;
-						if ((ypos<=cliprect.max_y) && (ypos>=(cliprect.min_y)-16))
+						if ((ypos<=cliprect.bottom()) && (ypos>=(cliprect.top())-16))
 						{
 							if(!m_sprite_bitmap.valid())
 							{
-								if ((ypos<=cliprect.max_y) && (ypos>=(cliprect.min_y)-16))
+								if ((ypos<=cliprect.bottom()) && (ypos>=(cliprect.top())-16))
 								{
 									if (!m_pri_cb.isnull())
 										m_gfxdecode->gfx(m_gfxregion)->prio_transpen(bitmap,cliprect,
@@ -409,7 +411,7 @@ void decospr_device::draw_sprites_common(_BitmapClass &bitmap, const rectangle &
 
 
 			if (!m_pri_cb.isnull())
-				pri = m_pri_cb(spriteram[offs+2]&0x00ff);
+				pri = m_pri_cb(spriteram[offs+2]&0x00ff, false);
 			else
 				pri = 0;
 
@@ -463,7 +465,7 @@ void decospr_device::draw_sprites_common(_BitmapClass &bitmap, const rectangle &
 							{
 								ypos = y + mult2 * (h-yy);
 
-								if ((ypos<=cliprect.max_y) && (ypos>=(cliprect.min_y)-16))
+								if ((ypos<=cliprect.bottom()) && (ypos>=(cliprect.top())-16))
 								{
 									m_gfxdecode->gfx(m_gfxregion)->prio_transpen(bitmap,cliprect,
 											sprite + yy + h * xx,
@@ -475,7 +477,7 @@ void decospr_device::draw_sprites_common(_BitmapClass &bitmap, const rectangle &
 
 								ypos -= 512; // wrap-around y
 
-								if ((ypos<=cliprect.max_y) && (ypos>=(cliprect.min_y-16)))
+								if ((ypos<=cliprect.bottom()) && (ypos>=(cliprect.top()-16)))
 								{
 									m_gfxdecode->gfx(m_gfxregion)->prio_transpen(bitmap,cliprect,
 											sprite + yy + h * xx,
@@ -490,7 +492,7 @@ void decospr_device::draw_sprites_common(_BitmapClass &bitmap, const rectangle &
 							{
 								ypos = y + mult2 * (h-yy);
 
-								if ((ypos<=cliprect.max_y) && (ypos>=(cliprect.min_y)-16))
+								if ((ypos<=cliprect.bottom()) && (ypos>=(cliprect.top())-16))
 								{
 									m_gfxdecode->gfx(m_gfxregion)->transpen(bitmap,cliprect,
 											sprite + yy + h * xx,
@@ -502,7 +504,7 @@ void decospr_device::draw_sprites_common(_BitmapClass &bitmap, const rectangle &
 
 								ypos -= 512; // wrap-around y
 
-								if ((ypos<=cliprect.max_y) && (ypos>=(cliprect.min_y-16)))
+								if ((ypos<=cliprect.bottom()) && (ypos>=(cliprect.top()-16)))
 								{
 									m_gfxdecode->gfx(m_gfxregion)->transpen(bitmap,cliprect,
 											sprite + yy + h * xx,
@@ -517,7 +519,7 @@ void decospr_device::draw_sprites_common(_BitmapClass &bitmap, const rectangle &
 						{
 							ypos = y + mult2 * (h-yy);
 
-							if ((ypos<=cliprect.max_y) && (ypos>=(cliprect.min_y)-16))
+							if ((ypos<=cliprect.bottom()) && (ypos>=(cliprect.top())-16))
 							{
 								m_gfxdecode->gfx(m_gfxregion)->transpen_raw(m_sprite_bitmap,cliprect,
 										sprite + yy + h * xx,
@@ -529,7 +531,7 @@ void decospr_device::draw_sprites_common(_BitmapClass &bitmap, const rectangle &
 
 							ypos -= 512; // wrap-around y
 
-							if ((ypos<=cliprect.max_y) && (ypos>=(cliprect.min_y-16)))
+							if ((ypos<=cliprect.bottom()) && (ypos>=(cliprect.top()-16)))
 							{
 								m_gfxdecode->gfx(m_gfxregion)->transpen_raw(m_sprite_bitmap,cliprect,
 										sprite + yy + h * xx,
@@ -567,14 +569,14 @@ void decospr_device::inefficient_copy_sprite_bitmap(bitmap_rgb32 &bitmap, const 
 	uint16_t* srcline;
 	uint32_t* dstline;
 
-	for (y=cliprect.min_y;y<=cliprect.max_y;y++)
+	for (y=cliprect.top();y<=cliprect.bottom();y++)
 	{
 		srcline= &m_sprite_bitmap.pix16(y);
 		dstline= &bitmap.pix32(y);
 
 		if (alpha==0xff)
 		{
-			for (x=cliprect.min_x;x<=cliprect.max_x;x++)
+			for (x=cliprect.left();x<=cliprect.right();x++)
 			{
 				uint16_t pix = srcline[x];
 
@@ -589,7 +591,7 @@ void decospr_device::inefficient_copy_sprite_bitmap(bitmap_rgb32 &bitmap, const 
 		}
 		else
 		{
-			for (x=cliprect.min_x;x<=cliprect.max_x;x++)
+			for (x=cliprect.left();x<=cliprect.right();x++)
 			{
 				uint16_t pix = srcline[x];
 

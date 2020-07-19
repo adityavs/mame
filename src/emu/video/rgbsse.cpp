@@ -2,7 +2,7 @@
 // copyright-holders:Vas Crabb, Ryan Holtz
 /***************************************************************************
 
-    rgbsse.c
+    rgbsse.cpp
 
     SSE optimized RGB utilities.
 
@@ -10,9 +10,10 @@
 
 ***************************************************************************/
 
+#include "emu.h"
+
 #if (!defined(MAME_DEBUG) || defined(__OPTIMIZE__)) && (defined(__SSE2__) || defined(_MSC_VER)) && defined(PTR64)
 
-#include "emu.h"
 #include <emmintrin.h>
 #include "rgbsse.h"
 

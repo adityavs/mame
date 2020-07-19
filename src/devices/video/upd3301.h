@@ -43,26 +43,6 @@
 #define UPD3301_DRAW_CHARACTER_MEMBER(_name) void _name(bitmap_rgb32 &bitmap, int y, int sx, uint8_t cc, uint8_t lc, int hlgt, int rvv, int vsp, int sl0, int sl12, int csr, int gpa)
 
 
-#define MCFG_UPD3301_CHARACTER_WIDTH(_value) \
-	downcast<upd3301_device &>(*device).set_character_width(_value);
-
-#define MCFG_UPD3301_DRAW_CHARACTER_CALLBACK_OWNER(_class, _method) \
-	downcast<upd3301_device &>(*device).set_display_callback(upd3301_device::draw_character_delegate(&_class::_method, #_class "::" #_method, this));
-
-#define MCFG_UPD3301_DRQ_CALLBACK(_write) \
-	devcb = &downcast<upd3301_device &>(*device).set_drq_wr_callback(DEVCB_##_write);
-
-#define MCFG_UPD3301_INT_CALLBACK(_write) \
-	devcb = &downcast<upd3301_device &>(*device).set_int_wr_callback(DEVCB_##_write);
-
-#define MCFG_UPD3301_HRTC_CALLBACK(_write) \
-	devcb = &downcast<upd3301_device &>(*device).set_hrtc_wr_callback(DEVCB_##_write);
-
-#define MCFG_UPD3301_VRTC_CALLBACK(_write) \
-	devcb = &downcast<upd3301_device &>(*device).set_vrtc_wr_callback(DEVCB_##_write);
-
-
-
 //**************************************************************************
 //  TYPE DEFINITIONS
 //**************************************************************************
@@ -80,19 +60,19 @@ public:
 	upd3301_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
 
 	void set_character_width(int value) { m_width = value; }
-	template <typename Object> void set_display_callback(Object &&cb) { m_display_cb = std::forward<Object>(cb); }
+	template <typename... T> void set_display_callback(T &&... args) { m_display_cb.set(std::forward<T>(args)...); }
 
-	template <class Object> devcb_base &set_drq_wr_callback(Object &&cb) { return m_write_drq.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_int_wr_callback(Object &&cb) { return m_write_int.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_hrtc_wr_callback(Object &&cb) { return m_write_hrtc.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_vrtc_wr_callback(Object &&cb) { return m_write_vrtc.set_callback(std::forward<Object>(cb)); }
+	auto drq_wr_callback() { return m_write_drq.bind(); }
+	auto int_wr_callback() { return m_write_int.bind(); }
+	auto hrtc_wr_callback() { return m_write_hrtc.bind(); }
+	auto vrtc_wr_callback() { return m_write_vrtc.bind(); }
 
-	DECLARE_READ8_MEMBER( read );
-	DECLARE_WRITE8_MEMBER( write );
-	DECLARE_WRITE8_MEMBER( dack_w );
-	DECLARE_WRITE_LINE_MEMBER( lpen_w );
-	DECLARE_READ_LINE_MEMBER( hrtc_r );
-	DECLARE_READ_LINE_MEMBER( vrtc_r );
+	uint8_t read(offs_t offset);
+	void write(offs_t offset, uint8_t data);
+	void dack_w(uint8_t data);
+	void lpen_w(int state);
+	int hrtc_r();
+	int vrtc_r();
 
 	uint32_t screen_update(screen_device &screen, bitmap_rgb32 &bitmap, const rectangle &cliprect);
 

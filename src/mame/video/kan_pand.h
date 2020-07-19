@@ -24,7 +24,7 @@ public:
 	kaneko_pandora_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
 
 	// configuration
-	void set_gfxdecode_tag(const char *tag) { m_gfxdecode.set_tag(tag); }
+	template <typename T> void set_gfxdecode_tag(T &&tag) { m_gfxdecode.set_tag(std::forward<T>(tag)); }
 	void set_gfx_region(int gfxregion) { m_gfx_region = gfxregion; }
 	void set_offsets(int x_offset, int y_offset)
 	{
@@ -32,10 +32,10 @@ public:
 		m_yoffset = y_offset;
 	}
 
-	DECLARE_WRITE8_MEMBER ( spriteram_w );
-	DECLARE_READ8_MEMBER( spriteram_r );
-	DECLARE_WRITE16_MEMBER( spriteram_LSB_w );
-	DECLARE_READ16_MEMBER( spriteram_LSB_r );
+	void spriteram_w(offs_t offset, uint8_t data);
+	uint8_t spriteram_r(offs_t offset);
+	void spriteram_LSB_w(offs_t offset, uint16_t data, uint16_t mem_mask = ~0);
+	uint16_t spriteram_LSB_r(offs_t offset);
 	void update( bitmap_ind16 &bitmap, const rectangle &cliprect );
 	void set_clear_bitmap( int clear );
 	void eof();
@@ -63,19 +63,5 @@ private:
 };
 
 DECLARE_DEVICE_TYPE(KANEKO_PANDORA, kaneko_pandora_device)
-
-
-/***************************************************************************
-    DEVICE CONFIGURATION MACROS
-***************************************************************************/
-
-#define MCFG_KANEKO_PANDORA_GFX_REGION(_region) \
-	downcast<kaneko_pandora_device &>(*device).set_gfx_region(_region);
-
-#define MCFG_KANEKO_PANDORA_OFFSETS(_xoffs, _yoffs) \
-	downcast<kaneko_pandora_device &>(*device).set_offsets(_xoffs, _yoffs);
-
-#define MCFG_KANEKO_PANDORA_GFXDECODE(_gfxtag) \
-	downcast<kaneko_pandora_device &>(*device).set_gfxdecode_tag("^" _gfxtag);
 
 #endif // MAME_VIDEO_KAN_PAND_H

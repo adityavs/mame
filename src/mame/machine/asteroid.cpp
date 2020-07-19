@@ -2,7 +2,7 @@
 // copyright-holders:Brad Oliver, Bernd Wiebelt, Allard van der Bas
 /***************************************************************************
 
-  machine.c
+  machine/asteroid.cpp
 
   Functions to emulate general aspects of the machine (RAM, ROM, interrupts,
   I/O ports)
@@ -10,7 +10,6 @@
 ***************************************************************************/
 
 #include "emu.h"
-#include "machine/atari_vg.h"
 #include "video/avgdvg.h"
 #include "includes/asteroid.h"
 
@@ -19,24 +18,32 @@ INTERRUPT_GEN_MEMBER(asteroid_state::asteroid_interrupt)
 {
 	/* Turn off interrupts if self-test is enabled */
 	if (!(ioport("IN0")->read() & 0x80))
-		device.execute().set_input_line(INPUT_LINE_NMI, PULSE_LINE);
+		device.execute().pulse_input_line(INPUT_LINE_NMI, attotime::zero);
 }
 
 INTERRUPT_GEN_MEMBER(asteroid_state::asterock_interrupt)
 {
 	/* Turn off interrupts if self-test is enabled */
 	if ((ioport("IN0")->read() & 0x80))
-		device.execute().set_input_line(INPUT_LINE_NMI, PULSE_LINE);
+		device.execute().pulse_input_line(INPUT_LINE_NMI, attotime::zero);
 }
 
 INTERRUPT_GEN_MEMBER(asteroid_state::llander_interrupt)
 {
 	/* Turn off interrupts if self-test is enabled */
 	if (ioport("IN0")->read() & 0x02)
-		device.execute().set_input_line(INPUT_LINE_NMI, PULSE_LINE);
+		device.execute().pulse_input_line(INPUT_LINE_NMI, attotime::zero);
 }
 
-READ8_MEMBER(asteroid_state::asteroid_IN0_r)
+WRITE_LINE_MEMBER(asteroid_state::cocktail_inv_w)
+{
+	// Inverter circuit is only hooked up for Cocktail Asteroids
+	int flip = state && m_cocktail->read();
+	m_dvg->set_flip_x(flip);
+	m_dvg->set_flip_y(flip);
+}
+
+uint8_t asteroid_state::asteroid_IN0_r(offs_t offset)
 {
 	int res = ioport("IN0")->read();
 	int bitmask = (1 << offset);
@@ -50,7 +57,7 @@ READ8_MEMBER(asteroid_state::asteroid_IN0_r)
 }
 
 
-READ8_MEMBER(asteroid_state::asterock_IN0_r)
+uint8_t asteroid_state::asterock_IN0_r(offs_t offset)
 {
 	int res = ioport("IN0")->read();
 	int bitmask = (1 << offset);
@@ -68,7 +75,7 @@ READ8_MEMBER(asteroid_state::asterock_IN0_r)
  * Typically, only the high bit is used. This is handled by one input port.
  */
 
-READ8_MEMBER(asteroid_state::asteroid_IN1_r)
+uint8_t asteroid_state::asteroid_IN1_r(offs_t offset)
 {
 	int res = ioport("IN1")->read();
 	int bitmask = (1 << (offset & 0x7));
@@ -82,7 +89,7 @@ READ8_MEMBER(asteroid_state::asteroid_IN1_r)
 }
 
 
-READ8_MEMBER(asteroid_state::asteroid_DSW1_r)
+uint8_t asteroid_state::asteroid_DSW1_r(offs_t offset)
 {
 	// 765432--  not used
 	// ------1-  ls253 dsw selector 2y
@@ -99,44 +106,11 @@ READ8_MEMBER(asteroid_state::asteroid_DSW1_r)
 	m_dsw_sel->i0a_w(BIT(val, 6));
 	m_dsw_sel->i0b_w(BIT(val, 7));
 
-	m_dsw_sel->s_w(space, 0, offset & 0x03);
+	m_dsw_sel->s_w(offset & 0x03);
 
 	return 0xfc | (m_dsw_sel->zb_r() << 1) | m_dsw_sel->za_r();
 }
 
-
-WRITE8_MEMBER(asteroid_state::asteroid_bank_switch_w)
-{
-	// 76------  not used
-	// --5-----  coin counter right coin
-	// ---4----  coin counter center coin
-	// ----3---  coin counter left coin
-	// -----2--  ramsel
-	// ------1-  start2 led
-	// -------0  start1 led
-
-	start1_led_w(BIT(data, 0));
-	start2_led_w(BIT(data, 1));
-
-	int bank = BIT(data, 2);
-	m_ram1->set_entry(bank);
-	m_ram2->set_entry(bank);
-
-	machine().bookkeeping().coin_counter_w(0, BIT(data, 3));
-	machine().bookkeeping().coin_counter_w(1, BIT(data, 4));
-	machine().bookkeeping().coin_counter_w(2, BIT(data, 5));
-}
-
-
-WRITE_LINE_MEMBER(asteroid_state::start1_led_w)
-{
-	output().set_led_value(0, state ? 0 : 1);
-}
-
-WRITE_LINE_MEMBER(asteroid_state::start2_led_w)
-{
-	output().set_led_value(1, state ? 0 : 1);
-}
 
 void asteroid_state::machine_start()
 {
@@ -157,7 +131,9 @@ void asteroid_state::machine_start()
 
 void asteroid_state::machine_reset()
 {
-	m_dvg->reset_w(m_maincpu->space(AS_PROGRAM), 0, 0);
+	m_dvg->reset_w();
+	if (m_earom.found())
+		earom_control_w(0);
 
 	/* reset RAM banks if present */
 	if (m_ram1.target() != nullptr)

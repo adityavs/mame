@@ -37,16 +37,16 @@ protected:
 	virtual void device_add_mconfig(machine_config &config) override;
 
 	// device_tiki100bus_card_interface overrides
-	virtual uint8_t iorq_r(address_space &space, offs_t offset, uint8_t data) override;
-	virtual void iorq_w(address_space &space, offs_t offset, uint8_t data) override;
+	virtual uint8_t iorq_r(offs_t offset, uint8_t data) override;
+	virtual void iorq_w(offs_t offset, uint8_t data) override;
 
 private:
 	required_device<i8088_cpu_device> m_maincpu;
 
 	uint8_t m_data;
 
-	DECLARE_READ8_MEMBER( read );
-	DECLARE_WRITE8_MEMBER( write );
+	uint8_t read();
+	void write(uint8_t data);
 
 	void i8088_io(address_map &map);
 	void i8088_mem(address_map &map);

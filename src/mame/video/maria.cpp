@@ -392,7 +392,7 @@ void atari_maria_device::startdma(int lines)
 
 	if (m_nmi)
 	{
-		m_cpu->set_input_line(INPUT_LINE_NMI, PULSE_LINE);
+		m_cpu->pulse_input_line(INPUT_LINE_NMI, attotime::zero);
 		m_nmi = 0;
 	}
 }
@@ -411,7 +411,7 @@ uint32_t atari_maria_device::screen_update(screen_device &screen, bitmap_ind16 &
 }
 
 
-READ8_MEMBER(atari_maria_device::read)
+uint8_t atari_maria_device::read(offs_t offset)
 {
 	switch (offset)
 	{
@@ -424,7 +424,7 @@ READ8_MEMBER(atari_maria_device::read)
 	}
 }
 
-WRITE8_MEMBER(atari_maria_device::write)
+void atari_maria_device::write(offs_t offset, uint8_t data)
 {
 	if ((offset & 3) != 0)
 		m_maria_palette[offset] = data;

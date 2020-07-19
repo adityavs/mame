@@ -18,13 +18,8 @@
 class volfied_state : public driver_device
 {
 public:
-	enum
-	{
-		TIMER_VOLFIED
-	};
-
-	volfied_state(const machine_config &mconfig, device_type type, const char *tag)
-		: driver_device(mconfig, type, tag),
+	volfied_state(const machine_config &mconfig, device_type type, const char *tag) :
+		driver_device(mconfig, type, tag),
 		m_maincpu(*this, "maincpu"),
 		m_audiocpu(*this, "audiocpu"),
 		m_cchip(*this, "cchip"),
@@ -33,27 +28,35 @@ public:
 		m_cchip_irq_clear(*this, "cchip_irq_clear")
 	{ }
 
-	DECLARE_READ16_MEMBER(video_ram_r);
-	DECLARE_WRITE16_MEMBER(video_ram_w);
-	DECLARE_WRITE16_MEMBER(video_ctrl_w);
-	DECLARE_READ16_MEMBER(video_ctrl_r);
-	DECLARE_WRITE16_MEMBER(video_mask_w);
-	DECLARE_WRITE16_MEMBER(sprite_ctrl_w);
-	DECLARE_WRITE8_MEMBER(counters_w);
+	void volfied(machine_config &config);
+
+protected:
+	enum
+	{
+		TIMER_VOLFIED
+	};
+
 	virtual void machine_start() override;
 	virtual void machine_reset() override;
 	virtual void video_start() override;
+
+private:
+	uint16_t video_ram_r(offs_t offset);
+	void video_ram_w(offs_t offset, uint16_t data, uint16_t mem_mask = ~0);
+	void video_ctrl_w(offs_t offset, uint16_t data, uint16_t mem_mask = ~0);
+	uint16_t video_ctrl_r();
+	void video_mask_w(offs_t offset, uint16_t data, uint16_t mem_mask = ~0);
+	void counters_w(uint8_t data);
+	void volfied_colpri_cb(u32 &sprite_colbank, u32 &pri_mask, u16 sprite_ctrl);
 	uint32_t screen_update(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
-	TIMER_DEVICE_CALLBACK_MEMBER(scanline);
+	INTERRUPT_GEN_MEMBER(interrupt);
 	TIMER_DEVICE_CALLBACK_MEMBER(cchip_irq_clear_cb);
 
 	void refresh_pixel_layer( bitmap_ind16 &bitmap );
 
-	void volfied(machine_config &config);
 	void main_map(address_map &map);
 	void z80_map(address_map &map);
 
-private:
 	/* memory pointers */
 	std::unique_ptr<uint16_t[]>    m_video_ram;
 

@@ -31,7 +31,9 @@
 #pragma once
 
 #include "sound/discrete.h"
+#include "emupal.h"
 #include "screen.h"
+#include "tilemap.h"
 
 
 #define STARSHP1_MASTER_CLOCK       (12096000)
@@ -58,16 +60,19 @@ public:
 		m_discrete(*this, "discrete"),
 		m_gfxdecode(*this, "gfxdecode"),
 		m_screen(*this, "screen"),
-		m_palette(*this, "palette")
+		m_palette(*this, "palette"),
+		m_led(*this, "led0")
 	{ }
+
+	void starshp1(machine_config &config);
 
 	DECLARE_CUSTOM_INPUT_MEMBER(starshp1_analog_r);
 	DECLARE_CUSTOM_INPUT_MEMBER(collision_latch_r);
-	void starshp1(machine_config &config);
 
-protected:
-	DECLARE_WRITE8_MEMBER(starshp1_collision_reset_w);
-	DECLARE_WRITE8_MEMBER(starshp1_analog_in_w);
+private:
+	virtual void machine_start() override;
+	void starshp1_collision_reset_w(uint8_t data);
+	void starshp1_analog_in_w(offs_t offset, uint8_t data);
 	DECLARE_WRITE_LINE_MEMBER(ship_explode_w);
 	DECLARE_WRITE_LINE_MEMBER(circle_mod_w);
 	DECLARE_WRITE_LINE_MEMBER(circle_kill_w);
@@ -75,16 +80,16 @@ protected:
 	DECLARE_WRITE_LINE_MEMBER(inverse_w);
 	DECLARE_WRITE_LINE_MEMBER(mux_w);
 	DECLARE_WRITE_LINE_MEMBER(led_w);
-	DECLARE_READ8_MEMBER(starshp1_rng_r);
-	DECLARE_WRITE8_MEMBER(starshp1_ssadd_w);
-	DECLARE_WRITE8_MEMBER(starshp1_sspic_w);
-	DECLARE_WRITE8_MEMBER(starshp1_playfield_w);
+	uint8_t starshp1_rng_r();
+	void starshp1_ssadd_w(offs_t offset, uint8_t data);
+	void starshp1_sspic_w(uint8_t data);
+	void starshp1_playfield_w(offs_t offset, uint8_t data);
 	DECLARE_WRITE_LINE_MEMBER(attract_w);
 	DECLARE_WRITE_LINE_MEMBER(phasor_w);
-	DECLARE_WRITE8_MEMBER(starshp1_analog_out_w);
+	void starshp1_analog_out_w(offs_t offset, uint8_t data);
 	TILE_GET_INFO_MEMBER(get_tile_info);
 	virtual void video_start() override;
-	DECLARE_PALETTE_INIT(starshp1);
+	void starshp1_palette(palette_device &palette) const;
 	uint32_t screen_update_starshp1(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
 	DECLARE_WRITE_LINE_MEMBER(screen_vblank_starshp1);
 	INTERRUPT_GEN_MEMBER(starshp1_interrupt);
@@ -136,11 +141,12 @@ private:
 	required_device<gfxdecode_device> m_gfxdecode;
 	required_device<screen_device> m_screen;
 	required_device<palette_device> m_palette;
+	output_finder<> m_led;
 };
 
 /*----------- defined in audio/starshp1.c -----------*/
 
-DISCRETE_SOUND_EXTERN( starshp1 );
+DISCRETE_SOUND_EXTERN( starshp1_discrete );
 
 /* Discrete Sound Input Nodes */
 #define STARSHP1_NOISE_AMPLITUDE    NODE_01

@@ -11,12 +11,6 @@
 
 #define DSBZ80_TAG "dsbz80"
 
-#define MCFG_DSBZ80_ADD(_tag) \
-	MCFG_DEVICE_ADD(_tag, DSBZ80, 0)
-
-#define MCFG_DSBZ80_RXD_HANDLER(_devcb) \
-	devcb = &downcast<dsbz80_device &>(*device).set_rxd_handler(DEVCB_##_devcb);
-
 //**************************************************************************
 //  TYPE DEFINITIONS
 //**************************************************************************
@@ -28,22 +22,16 @@ public:
 	dsbz80_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
 
 	// configuration
-	template<class Object> devcb_base &set_rxd_handler(device_t &device, Object &&object) { return m_rxd_handler.set_callback(std::forward<Object>(object)); }
+	auto rxd_handler() { return m_rxd_handler.bind(); }
 
 	required_device<cpu_device> m_ourcpu;
 	required_device<i8251_device> m_uart;
 
 	DECLARE_WRITE_LINE_MEMBER(write_txd);
 
-	DECLARE_WRITE8_MEMBER(mpeg_trigger_w);
-	DECLARE_WRITE8_MEMBER(mpeg_start_w);
-	DECLARE_WRITE8_MEMBER(mpeg_end_w);
-	DECLARE_WRITE8_MEMBER(mpeg_volume_w);
-	DECLARE_WRITE8_MEMBER(mpeg_stereo_w);
-	DECLARE_READ8_MEMBER(mpeg_pos_r);
-
 	void dsbz80_map(address_map &map);
 	void dsbz80io_map(address_map &map);
+
 protected:
 	// device-level overrides
 	virtual void device_start() override;
@@ -60,6 +48,13 @@ private:
 	devcb_write_line   m_rxd_handler;
 
 	DECLARE_WRITE_LINE_MEMBER(output_txd);
+
+	void mpeg_trigger_w(uint8_t data);
+	void mpeg_start_w(offs_t offset, uint8_t data);
+	void mpeg_end_w(offs_t offset, uint8_t data);
+	void mpeg_volume_w(uint8_t data);
+	void mpeg_stereo_w(uint8_t data);
+	uint8_t mpeg_pos_r(offs_t offset);
 };
 
 

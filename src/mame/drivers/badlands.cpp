@@ -87,7 +87,8 @@
     4000-FFFF   R     xxxxxxxx   Program ROM
     ========================================================================
     Interrupts:
-        IRQ = timed interrupt ORed with YM2151 interrupt
+        IRQ = timed interrupt (clocked by VBLANK ORed with 32V; YM2151 IRQ
+              is tested by service routine but not connected on hardware)
         NMI = latch on sound command
     ========================================================================
 
@@ -165,7 +166,7 @@ Measurements -
 
 #include "emu.h"
 #include "includes/badlands.h"
-
+#include "emupal.h"
 
 
 /*************************************
@@ -174,18 +175,6 @@ Measurements -
  *
  *************************************/
 
-void badlands_state::update_interrupts()
-{
-	m_maincpu->set_input_line(1, m_video_int_state ? ASSERT_LINE : CLEAR_LINE);
-	m_maincpu->set_input_line(2, m_sound_int_state ? ASSERT_LINE : CLEAR_LINE);
-}
-
-
-void badlands_state::scanline_update(screen_device &screen, int scanline)
-{
-	// sound CPU irq is scanline controlled, we update it below to make bootlegs happy
-}
-
 TIMER_DEVICE_CALLBACK_MEMBER(badlands_state::sound_scanline)
 {
 	int scanline = param;
@@ -193,13 +182,12 @@ TIMER_DEVICE_CALLBACK_MEMBER(badlands_state::sound_scanline)
 
 	// 32V
 	if ((scanline % 64) == 0 && scanline < 240)
-		m_soundcomm->sound_irq_gen(*m_audiocpu);
+		m_audiocpu->set_input_line(m6502_device::IRQ_LINE, ASSERT_LINE);
 }
 
 
 MACHINE_START_MEMBER(badlands_state,badlands)
 {
-	atarigen_state::machine_start();
 	save_item(NAME(m_pedal_value));
 }
 
@@ -208,7 +196,6 @@ MACHINE_RESET_MEMBER(badlands_state,badlands)
 {
 	m_pedal_value[0] = m_pedal_value[1] = 0x80;
 
-	atarigen_state::machine_reset();
 	//scanline_timer_reset(*m_screen, 32);
 
 	membank("soundbank")->set_entry(0);
@@ -236,7 +223,12 @@ INTERRUPT_GEN_MEMBER(badlands_state::vblank_int)
 			m_pedal_value[i]++;
 	}
 
-	video_int_gen(device);
+	m_maincpu->set_input_line(M68K_IRQ_1, ASSERT_LINE);
+}
+
+void badlands_state::video_int_ack_w(uint16_t data)
+{
+	m_maincpu->set_input_line(M68K_IRQ_1, CLEAR_LINE);
 }
 
 
@@ -247,21 +239,28 @@ INTERRUPT_GEN_MEMBER(badlands_state::vblank_int)
  *
  *************************************/
 
-READ16_MEMBER(badlands_state::sound_busy_r)
+uint16_t badlands_state::sound_busy_r()
 {
-	int temp = 0xfeff;
-	if (m_soundcomm->main_to_sound_ready()) temp ^= 0x0100;
+	uint16_t temp = 0xfeff;
+	if (m_soundlatch->pending_r()) temp ^= 0x0100;
 	return temp;
 }
 
 
-READ16_MEMBER(badlands_state::pedal_0_r)
+void badlands_state::sound_reset_w(uint16_t data)
+{
+	m_audiocpu->pulse_input_line(INPUT_LINE_RESET, attotime::zero);
+	audio_io_w(0);
+}
+
+
+uint16_t badlands_state::pedal_0_r()
 {
 	return m_pedal_value[0];
 }
 
 
-READ16_MEMBER(badlands_state::pedal_1_r)
+uint16_t badlands_state::pedal_1_r()
 {
 	return m_pedal_value[1];
 }
@@ -273,91 +272,60 @@ READ16_MEMBER(badlands_state::pedal_1_r)
  *
  *************************************/
 
-READ8_MEMBER(badlands_state::audio_io_r)
+uint8_t badlands_state::audio_io_r()
 {
-	int result = 0xff;
-
-	switch (offset & 0x206)
-	{
-		case 0x000:     /* n/c */
-			logerror("audio_io_r: Unknown read at %04X\n", offset & 0x206);
-			break;
-
-		case 0x002:     /* /RDP */
-			result = m_soundcomm->sound_command_r(space, offset);
-			break;
-
-		case 0x004:     /* /RDIO */
-			/*
-			    0x80 = self test
-			    0x40 = NMI line state (active low)
-			    0x20 = sound output full
-			    0x10 = self test
-			    0x08 = +5V
-			    0x04 = +5V
-			    0x02 = coin 2
-			    0x01 = coin 1
-			*/
-			result = ioport("AUDIO")->read();
-			if (!(ioport("FE4000")->read() & 0x0080)) result ^= 0x90;
-			result ^= 0x10;
-			break;
-
-		case 0x006:     /* /IRQACK */
-			m_soundcomm->sound_irq_ack_r(space, 0);
-			break;
-
-		case 0x200:     /* /VOICE */
-		case 0x202:     /* /WRP */
-		case 0x204:     /* /WRIO */
-		case 0x206:     /* /MIX */
-			logerror("audio_io_r: Unknown read at %04X\n", offset & 0x206);
-			break;
-	}
+	/*
+	   /RDIO
+	    0x80 = self test
+	    0x40 = NMI line state (active low)
+	    0x20 = sound output full
+	    0x10 = self test
+	    0x08 = +5V
+	    0x04 = +5V
+	    0x02 = coin 2
+	    0x01 = coin 1
+	*/
+	uint8_t result = ioport("AUDIO")->read();
+	if (!(ioport("FE4000")->read() & 0x0080)) result ^= 0x90;
+	result ^= 0x10;
 
 	return result;
 }
 
 
-WRITE8_MEMBER(badlands_state::audio_io_w)
+void badlands_state::audio_io_w(uint8_t data)
 {
-	switch (offset & 0x206)
-	{
-		case 0x000:     /* n/c */
-		case 0x002:     /* /RDP */
-		case 0x004:     /* /RDIO */
-			logerror("audio_io_w: Unknown write (%02X) at %04X\n", data & 0xff, offset & 0x206);
-			break;
+	/*
+	   /WRIO
+	    0xc0 = bank address
+	    0x20 = coin counter 1
+	    0x10 = coin counter 2
+	    0x08 = n/c
+	    0x04 = n/c
+	    0x02 = n/c
+	    0x01 = YM2151 reset (active low)
+	*/
 
-		case 0x006:     /* /IRQACK */
-			m_soundcomm->sound_irq_ack_r(space, 0);
-			break;
+	// update the bank
+	membank("soundbank")->set_entry((data >> 6) & 3);
+	machine().bookkeeping().coin_counter_w(0, BIT(data, 5));
+	machine().bookkeeping().coin_counter_w(1, BIT(data, 4));
+	m_ymsnd->reset_w(BIT(data, 0));
+}
 
-		case 0x200:     /* n/c */
-		case 0x206:     /* n/c */
-			break;
 
-		case 0x202:     /* /WRP */
-			m_soundcomm->sound_response_w(space, offset, data);
-			break;
+uint8_t badlands_state::audio_irqack_r()
+{
+	if (!machine().side_effects_disabled())
+		m_audiocpu->set_input_line(m6502_device::IRQ_LINE, CLEAR_LINE);
 
-		case 0x204:     /* WRIO */
-			/*
-			    0xc0 = bank address
-			    0x20 = coin counter 1
-			    0x10 = coin counter 2
-			    0x08 = n/c
-			    0x04 = n/c
-			    0x02 = n/c
-			    0x01 = YM2151 reset (active low)
-			*/
+	return 0xff;
+}
 
-			/* update the bank */
-			membank("soundbank")->set_entry((data >> 6) & 3);
-			machine().bookkeeping().coin_counter_w(0, data & 0x20);
-			machine().bookkeeping().coin_counter_w(1, data & 0x10);
-			break;
-	}
+
+void badlands_state::audio_irqack_w(uint8_t data)
+{
+	m_audiocpu->set_input_line(m6502_device::IRQ_LINE, CLEAR_LINE);
 }
 
 
@@ -368,26 +336,27 @@ WRITE8_MEMBER(badlands_state::audio_io_w)
  *
  *************************************/
 
-ADDRESS_MAP_START(badlands_state::main_map)
-	AM_RANGE(0x000000, 0x03ffff) AM_ROM
-	AM_RANGE(0xfc0000, 0xfc1fff) AM_READ(sound_busy_r) AM_DEVWRITE("soundcomm", atari_sound_comm_device, sound_reset_w)
-	AM_RANGE(0xfd0000, 0xfd1fff) AM_DEVREADWRITE8("eeprom", eeprom_parallel_28xx_device, read, write, 0x00ff)
-	AM_RANGE(0xfe0000, 0xfe1fff) AM_DEVWRITE("watchdog", watchdog_timer_device, reset16_w)
-	AM_RANGE(0xfe2000, 0xfe3fff) AM_WRITE(video_int_ack_w)
-	AM_RANGE(0xfe4000, 0xfe5fff) AM_READ_PORT("FE4000")
-	AM_RANGE(0xfe6000, 0xfe6001) AM_READ_PORT("FE6000")
-	AM_RANGE(0xfe6002, 0xfe6003) AM_READ_PORT("FE6002")
-	AM_RANGE(0xfe6004, 0xfe6005) AM_READ(pedal_0_r)
-	AM_RANGE(0xfe6006, 0xfe6007) AM_READ(pedal_1_r)
-	AM_RANGE(0xfe8000, 0xfe9fff) AM_DEVWRITE8("soundcomm", atari_sound_comm_device, main_command_w, 0xff00)
-	AM_RANGE(0xfea000, 0xfebfff) AM_DEVREAD8("soundcomm", atari_sound_comm_device, main_response_r, 0xff00)
-	AM_RANGE(0xfec000, 0xfedfff) AM_WRITE(badlands_pf_bank_w)
-	AM_RANGE(0xfee000, 0xfeffff) AM_DEVWRITE("eeprom", eeprom_parallel_28xx_device, unlock_write16)
-	AM_RANGE(0xffc000, 0xffc3ff) AM_DEVREADWRITE8("palette", palette_device, read8, write8, 0xff00) AM_SHARE("palette")
-	AM_RANGE(0xffe000, 0xffefff) AM_RAM_DEVWRITE("playfield", tilemap_device, write16) AM_SHARE("playfield")
-	AM_RANGE(0xfff000, 0xfff1ff) AM_RAM AM_SHARE("mob")
-	AM_RANGE(0xfff200, 0xffffff) AM_RAM
-ADDRESS_MAP_END
+void badlands_state::main_map(address_map &map)
+{
+	map(0x000000, 0x03ffff).rom();
+	map(0xfc0000, 0xfc1fff).rw(FUNC(badlands_state::sound_busy_r), FUNC(badlands_state::sound_reset_w));
+	map(0xfd0000, 0xfd1fff).rw("eeprom", FUNC(eeprom_parallel_28xx_device::read), FUNC(eeprom_parallel_28xx_device::write)).umask16(0x00ff);
+	map(0xfe0000, 0xfe1fff).w("watchdog", FUNC(watchdog_timer_device::reset16_w));
+	map(0xfe2000, 0xfe3fff).w(FUNC(badlands_state::video_int_ack_w));
+	map(0xfe4000, 0xfe5fff).portr("FE4000");
+	map(0xfe6000, 0xfe6001).portr("FE6000");
+	map(0xfe6002, 0xfe6003).portr("FE6002");
+	map(0xfe6004, 0xfe6005).r(FUNC(badlands_state::pedal_0_r));
+	map(0xfe6006, 0xfe6007).r(FUNC(badlands_state::pedal_1_r));
+	map(0xfe8000, 0xfe9fff).w(m_soundlatch, FUNC(generic_latch_8_device::write)).umask16(0xff00);
+	map(0xfea000, 0xfebfff).r(m_mainlatch, FUNC(generic_latch_8_device::read)).umask16(0xff00);
+	map(0xfec000, 0xfedfff).w(FUNC(badlands_state::badlands_pf_bank_w));
+	map(0xfee000, 0xfeffff).w("eeprom", FUNC(eeprom_parallel_28xx_device::unlock_write16));
+	map(0xffc000, 0xffc3ff).rw("palette", FUNC(palette_device::read8), FUNC(palette_device::write8)).umask16(0xff00).share("palette");
+	map(0xffe000, 0xffefff).ram().w(m_playfield_tilemap, FUNC(tilemap_device::write16)).share("playfield");
+	map(0xfff000, 0xfff1ff).ram().share("mob");
+	map(0xfff200, 0xffffff).ram();
+}
 
 
 
@@ -397,13 +366,18 @@ ADDRESS_MAP_END
  *
  *************************************/
 
-ADDRESS_MAP_START(badlands_state::audio_map)
-	AM_RANGE(0x0000, 0x1fff) AM_RAM
-	AM_RANGE(0x2000, 0x2001) AM_DEVREADWRITE("ymsnd", ym2151_device, read, write)
-	AM_RANGE(0x2800, 0x2bff) AM_READWRITE(audio_io_r, audio_io_w)
-	AM_RANGE(0x3000, 0x3fff) AM_ROMBANK("soundbank")
-	AM_RANGE(0x4000, 0xffff) AM_ROM
-ADDRESS_MAP_END
+void badlands_state::audio_map(address_map &map)
+{
+	map(0x0000, 0x1fff).ram();
+	map(0x2000, 0x2001).mirror(0x5fe).rw(m_ymsnd, FUNC(ym2151_device::read), FUNC(ym2151_device::write));
+	map(0x2802, 0x2802).mirror(0x5f9).r(m_soundlatch, FUNC(generic_latch_8_device::read));
+	map(0x2804, 0x2804).mirror(0x5f9).r(FUNC(badlands_state::audio_io_r));
+	map(0x2806, 0x2806).mirror(0x5f9).rw(FUNC(badlands_state::audio_irqack_r), FUNC(badlands_state::audio_irqack_w));
+	map(0x2a02, 0x2a02).mirror(0x5f9).w(m_mainlatch, FUNC(generic_latch_8_device::write));
+	map(0x2a04, 0x2a04).mirror(0x5f9).w(FUNC(badlands_state::audio_io_w));
+	map(0x3000, 0x3fff).bankr("soundbank");
+	map(0x4000, 0xffff).rom();
+}
 
 
 /*************************************
@@ -434,7 +408,7 @@ static const gfx_layout badlands_molayout =
 	64*8
 };
 
-static GFXDECODE_START( badlands )
+static GFXDECODE_START( gfx_badlands )
 	GFXDECODE_ENTRY( "gfx1", 0, pflayout,           0, 8 )
 	GFXDECODE_ENTRY( "gfx2", 0, badlands_molayout,  128, 8 )
 GFXDECODE_END
@@ -447,53 +421,57 @@ GFXDECODE_END
  *
  *************************************/
 
-MACHINE_CONFIG_START(badlands_state::badlands)
-
+void badlands_state::badlands(machine_config &config)
+{
 	/* basic machine hardware */
-	MCFG_CPU_ADD("maincpu", M68000, ATARI_CLOCK_14MHz/2)
-	MCFG_CPU_PROGRAM_MAP(main_map)
-	MCFG_CPU_VBLANK_INT_DRIVER("screen", badlands_state,  vblank_int)
+	M68000(config, m_maincpu, 14.318181_MHz_XTAL/2);
+	m_maincpu->set_addrmap(AS_PROGRAM, &badlands_state::main_map);
+	m_maincpu->set_vblank_int("screen", FUNC(badlands_state::vblank_int));
 
-	MCFG_CPU_ADD("audiocpu", M6502, ATARI_CLOCK_14MHz/8)
-	MCFG_CPU_PROGRAM_MAP(audio_map)
-	MCFG_TIMER_DRIVER_ADD_SCANLINE("scantimer", badlands_state, sound_scanline, "screen", 0, 1)
+	M6502(config, m_audiocpu, 14.318181_MHz_XTAL/8);
+	m_audiocpu->set_addrmap(AS_PROGRAM, &badlands_state::audio_map);
+	TIMER(config, "scantimer").configure_scanline(FUNC(badlands_state::sound_scanline), "screen", 0, 1);
 
 	MCFG_MACHINE_START_OVERRIDE(badlands_state,badlands)
 	MCFG_MACHINE_RESET_OVERRIDE(badlands_state,badlands)
 
-	MCFG_EEPROM_2816_ADD("eeprom")
-	MCFG_EEPROM_28XX_LOCK_AFTER_WRITE(true)
+	EEPROM_2816(config, "eeprom").lock_after_write(true);
 
-	MCFG_WATCHDOG_ADD("watchdog")
+	WATCHDOG_TIMER(config, "watchdog");
 
 	/* video hardware */
-	MCFG_GFXDECODE_ADD("gfxdecode", "palette", badlands)
-	MCFG_PALETTE_ADD("palette", 256)
-	MCFG_PALETTE_FORMAT(IRRRRRGGGGGBBBBB)
-	MCFG_PALETTE_MEMBITS(8)
+	GFXDECODE(config, m_gfxdecode, "palette", gfx_badlands);
+	palette_device &palette(PALETTE(config, "palette"));
+	palette.set_format(palette_device::IRGB_1555, 256);
+	palette.set_membits(8);
 
-	MCFG_TILEMAP_ADD_STANDARD("playfield", "gfxdecode", 2, badlands_state, get_playfield_tile_info, 8,8, SCAN_ROWS, 64,32)
-	MCFG_ATARI_MOTION_OBJECTS_ADD("mob", "screen", badlands_state::s_mob_config)
-	MCFG_ATARI_MOTION_OBJECTS_GFXDECODE("gfxdecode")
+	TILEMAP(config, m_playfield_tilemap, m_gfxdecode, 2, 8,8, TILEMAP_SCAN_ROWS, 64,32).set_info_callback(FUNC(badlands_state::get_playfield_tile_info));
 
-	MCFG_SCREEN_ADD("screen", RASTER)
-	MCFG_SCREEN_VIDEO_ATTRIBUTES(VIDEO_UPDATE_BEFORE_VBLANK)
+	ATARI_MOTION_OBJECTS(config, m_mob, 0, m_screen, badlands_state::s_mob_config);
+	m_mob->set_gfxdecode(m_gfxdecode);
+
+	SCREEN(config, m_screen, SCREEN_TYPE_RASTER);
+	m_screen->set_video_attributes(VIDEO_UPDATE_BEFORE_VBLANK);
 	/* note: these parameters are from published specs, not derived */
 	/* the board uses an SOS-2 chip to generate video signals */
-	MCFG_SCREEN_RAW_PARAMS(ATARI_CLOCK_14MHz/2, 456, 0, 336, 262, 0, 240)
-	MCFG_SCREEN_UPDATE_DRIVER(badlands_state, screen_update_badlands)
-	MCFG_SCREEN_PALETTE("palette")
+	m_screen->set_raw(14.318181_MHz_XTAL/2, 456, 0, 336, 262, 0, 240);
+	m_screen->set_screen_update(FUNC(badlands_state::screen_update_badlands));
+	m_screen->set_palette("palette");
 
 	MCFG_VIDEO_START_OVERRIDE(badlands_state,badlands)
 
 	/* sound hardware */
-	MCFG_ATARI_SOUND_COMM_ADD("soundcomm", "audiocpu", WRITELINE(badlands_state, sound_int_write_line))
-	MCFG_SPEAKER_STANDARD_MONO("mono")
+	GENERIC_LATCH_8(config, m_soundlatch);
+	m_soundlatch->data_pending_callback().set_inputline(m_audiocpu, m6502_device::NMI_LINE);
 
-	MCFG_YM2151_ADD("ymsnd", ATARI_CLOCK_14MHz/4)
-	MCFG_SOUND_ROUTE(0, "mono", 0.30)
-	MCFG_SOUND_ROUTE(1, "mono", 0.30)
-MACHINE_CONFIG_END
+	GENERIC_LATCH_8(config, m_mainlatch);
+	m_mainlatch->data_pending_callback().set_inputline(m_maincpu, M68K_IRQ_2);
+
+	SPEAKER(config, "mono").front_center();
+
+	YM2151(config, m_ymsnd, 14.318181_MHz_XTAL/4);
+	m_ymsnd->add_route(0, "mono", 0.30).add_route(1, "mono", 0.30);
+}
 
 
 
@@ -543,7 +521,7 @@ ROM_END
  *
  *************************************/
 
-DRIVER_INIT_MEMBER(badlands_state,badlands)
+void badlands_state::init_badlands()
 {
 	/* initialize the audio system */
 	membank("soundbank")->configure_entries(0, 4, memregion("audiocpu")->base(), 0x01000);
@@ -557,4 +535,4 @@ DRIVER_INIT_MEMBER(badlands_state,badlands)
  *
  *************************************/
 
-GAME( 1989, badlands, 0, badlands, badlands, badlands_state, badlands, ROT0, "Atari Games", "Bad Lands", MACHINE_SUPPORTS_SAVE )
+GAME( 1989, badlands, 0, badlands, badlands, badlands_state, init_badlands, ROT0, "Atari Games", "Bad Lands", MACHINE_SUPPORTS_SAVE )

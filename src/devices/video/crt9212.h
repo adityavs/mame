@@ -28,27 +28,6 @@
 
 #pragma once
 
-
-
-
-//**************************************************************************
-//  INTERFACE CONFIGURATION MACROS
-//**************************************************************************
-
-#define MCFG_CRT9212_WEN2_VCC() \
-	downcast<crt9212_device &>(*device).set_wen2(1);
-
-#define MCFG_CRT9212_DOUT_CALLBACK(_write) \
-	devcb = &downcast<crt9212_device &>(*device).set_dout_wr_callback(DEVCB_##_write);
-
-#define MCFG_CRT9212_ROF_CALLBACK(_write) \
-	devcb = &downcast<crt9212_device &>(*device).set_rof_wr_callback(DEVCB_##_write);
-
-#define MCFG_CRT9212_WOF_CALLBACK(_write) \
-	devcb = &downcast<crt9212_device &>(*device).set_wof_wr_callback(DEVCB_##_write);
-
-
-
 //**************************************************************************
 //  TYPE DEFINITIONS
 //**************************************************************************
@@ -62,20 +41,19 @@ public:
 	crt9212_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
 
 	void set_wen2(int state) { m_wen2 = state; }
+	auto dout() { return m_write_dout.bind(); }
+	auto rof() { return m_write_rof.bind(); }
+	auto wof() { return m_write_wof.bind(); }
 
-	template <class Object> devcb_base &set_dout_wr_callback(Object &&cb) { return m_write_dout.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_rof_wr_callback(Object &&cb) { return m_write_rof.set_callback(std::forward<Object>(cb)); }
-	template <class Object> devcb_base &set_wof_wr_callback(Object &&cb) { return m_write_wof.set_callback(std::forward<Object>(cb)); }
-
-	DECLARE_WRITE8_MEMBER( write ) { m_data = data; }
-	DECLARE_WRITE_LINE_MEMBER( clrcnt_w );
-	DECLARE_WRITE_LINE_MEMBER( tog_w ) { m_tog = state; }
-	DECLARE_WRITE_LINE_MEMBER( ren_w ) { m_ren = state; }
-	DECLARE_WRITE_LINE_MEMBER( wen1_w ) { m_wen1 = state; }
-	DECLARE_WRITE_LINE_MEMBER( wen2_w ) { m_wen2 = state; }
-	DECLARE_WRITE_LINE_MEMBER( oe_w ) { m_oe = state; }
-	DECLARE_WRITE_LINE_MEMBER( rclk_w );
-	DECLARE_WRITE_LINE_MEMBER( wclk_w );
+	void write(uint8_t data) { m_data = data; }
+	void clrcnt_w(int state);
+	void tog_w(int state) { m_tog = state; }
+	void ren_w(int state) { m_ren = state; }
+	void wen1_w(int state) { m_wen1 = state; }
+	void wen2_w(int state) { m_wen2 = state; }
+	void oe_w(int state) { m_oe = state; }
+	void rclk_w(int state) ;
+	void wclk_w(int state) ;
 
 protected:
 	// device-level overrides
@@ -112,8 +90,6 @@ private:
 
 
 // device type definition
-extern const device_type CRT9212;
+DECLARE_DEVICE_TYPE(CRT9212, crt9212_device)
 
-
-
-#endif
+#endif // MAME_VIDEO_CRT9212_H

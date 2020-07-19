@@ -13,6 +13,8 @@
 #include "machine/74259.h"
 #include "machine/watchdog.h"
 #include "sound/discrete.h"
+#include "emupal.h"
+#include "tilemap.h"
 
 /* Discrete Sound Input Nodes */
 #define SKYDIVER_RANGE_DATA     NODE_01
@@ -38,16 +40,25 @@ public:
 		m_discrete(*this, "discrete"),
 		m_gfxdecode(*this, "gfxdecode"),
 		m_palette(*this, "palette"),
-		m_videoram(*this, "videoram")
+		m_videoram(*this, "videoram"),
+		m_leds(*this, "led%u", 0U),
+		m_lamp_s(*this, "lamps"),
+		m_lamp_k(*this, "lampk"),
+		m_lamp_y(*this, "lampy"),
+		m_lamp_d(*this, "lampd"),
+		m_lamp_i(*this, "lampi"),
+		m_lamp_v(*this, "lampv"),
+		m_lamp_e(*this, "lampe"),
+		m_lamp_r(*this, "lampr")
 	{ }
 
 	void skydiver(machine_config &config);
 
-protected:
+private:
 	DECLARE_WRITE_LINE_MEMBER(nmion_w);
-	DECLARE_WRITE8_MEMBER(videoram_w);
-	DECLARE_READ8_MEMBER(wram_r);
-	DECLARE_WRITE8_MEMBER(wram_w);
+	void videoram_w(offs_t offset, uint8_t data);
+	uint8_t wram_r(offs_t offset);
+	void wram_w(offs_t offset, uint8_t data);
 	DECLARE_WRITE_LINE_MEMBER(width_w);
 	DECLARE_WRITE_LINE_MEMBER(coin_lockout_w);
 	DECLARE_WRITE_LINE_MEMBER(start_lamp_1_w);
@@ -60,13 +71,13 @@ protected:
 	DECLARE_WRITE_LINE_MEMBER(lamp_v_w);
 	DECLARE_WRITE_LINE_MEMBER(lamp_e_w);
 	DECLARE_WRITE_LINE_MEMBER(lamp_r_w);
-	DECLARE_WRITE8_MEMBER(latch3_watchdog_w);
+	void latch3_watchdog_w(offs_t offset, uint8_t data);
 
 	TILE_GET_INFO_MEMBER(get_tile_info);
 
 	virtual void machine_reset() override;
 	virtual void video_start() override;
-	DECLARE_PALETTE_INIT(skydiver);
+	void skydiver_palette(palette_device &palette) const;
 
 	uint32_t screen_update(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
 	void draw_sprites(bitmap_ind16 &bitmap, const rectangle &cliprect);
@@ -74,7 +85,6 @@ protected:
 	INTERRUPT_GEN_MEMBER(interrupt);
 	void skydiver_map(address_map &map);
 
-private:
 	required_device<cpu_device> m_maincpu;
 	required_device<watchdog_timer_device> m_watchdog;
 	required_device<f9334_device> m_latch3;
@@ -84,12 +94,21 @@ private:
 
 	required_shared_ptr<uint8_t> m_videoram;
 
+	output_finder<2> m_leds;
+	output_finder<> m_lamp_s;
+	output_finder<> m_lamp_k;
+	output_finder<> m_lamp_y;
+	output_finder<> m_lamp_d;
+	output_finder<> m_lamp_i;
+	output_finder<> m_lamp_v;
+	output_finder<> m_lamp_e;
+	output_finder<> m_lamp_r;
 	int m_nmion;
 	tilemap_t *m_bg_tilemap;
 	int m_width;
 };
 
 /*----------- defined in audio/skydiver.c -----------*/
-DISCRETE_SOUND_EXTERN( skydiver );
+DISCRETE_SOUND_EXTERN( skydiver_discrete );
 
 #endif // MAME_INCLUDES_SKYDIVER_H

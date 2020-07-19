@@ -11,21 +11,16 @@
 #include "screen.h"
 
 
-PALETTE_INIT_MEMBER(hcastle_state, hcastle)
+void hcastle_state::hcastle_palette(palette_device &palette) const
 {
-	const uint8_t *color_prom = memregion("proms")->base();
-	int chip;
-
-	for (chip = 0; chip < 2; chip++)
+	uint8_t const *const color_prom = memregion("proms")->base();
+	for (int chip = 0; chip < 2; chip++)
 	{
-		int pal;
-
-		for (pal = 0; pal < 8; pal++)
+		for (int pal = 0; pal < 8; pal++)
 		{
-			int i;
-			int clut = (chip << 1) | (pal & 1);
+			int const clut = (chip << 1) | (pal & 1);
 
-			for (i = 0; i < 0x100; i++)
+			for (int i = 0; i < 0x100; i++)
 			{
 				uint8_t ctabentry;
 
@@ -71,7 +66,7 @@ TILE_GET_INFO_MEMBER(hcastle_state::get_fg_tile_info)
 				((attr >> (bit2    )) & 0x08) |
 				((attr >> (bit3 - 1)) & 0x10);
 
-	SET_TILE_INFO_MEMBER(0,
+	tileinfo.set(0,
 			tile + bank * 0x100 + m_pf1_bankbase,
 			((ctrl_6 & 0x30) * 2 + 16) + color,
 			0);
@@ -94,7 +89,7 @@ TILE_GET_INFO_MEMBER(hcastle_state::get_bg_tile_info)
 				((attr >> (bit2    )) & 0x08) |
 				((attr >> (bit3 - 1)) & 0x10);
 
-	SET_TILE_INFO_MEMBER(1,
+	tileinfo.set(1,
 			tile + bank * 0x100 + m_pf2_bankbase,
 			((ctrl_6 & 0x30) * 2 + 16) + color,
 			0);
@@ -110,8 +105,8 @@ TILE_GET_INFO_MEMBER(hcastle_state::get_bg_tile_info)
 
 void hcastle_state::video_start()
 {
-	m_fg_tilemap = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(FUNC(hcastle_state::get_fg_tile_info),this), tilemap_mapper_delegate(FUNC(hcastle_state::tilemap_scan),this), 8, 8, 64, 32);
-	m_bg_tilemap = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(FUNC(hcastle_state::get_bg_tile_info),this), tilemap_mapper_delegate(FUNC(hcastle_state::tilemap_scan),this), 8, 8, 64, 32);
+	m_fg_tilemap = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(*this, FUNC(hcastle_state::get_fg_tile_info)), tilemap_mapper_delegate(*this, FUNC(hcastle_state::tilemap_scan)), 8, 8, 64, 32);
+	m_bg_tilemap = &machine().tilemap().create(*m_gfxdecode, tilemap_get_info_delegate(*this, FUNC(hcastle_state::get_bg_tile_info)), tilemap_mapper_delegate(*this, FUNC(hcastle_state::tilemap_scan)), 8, 8, 64, 32);
 
 	m_fg_tilemap->set_transparent_pen(0);
 }
@@ -124,29 +119,29 @@ void hcastle_state::video_start()
 
 ***************************************************************************/
 
-WRITE8_MEMBER(hcastle_state::hcastle_pf1_video_w)
+void hcastle_state::hcastle_pf1_video_w(offs_t offset, uint8_t data)
 {
 	m_pf1_videoram[offset] = data;
 	m_fg_tilemap->mark_tile_dirty(offset & 0xbff);
 }
 
-WRITE8_MEMBER(hcastle_state::hcastle_pf2_video_w)
+void hcastle_state::hcastle_pf2_video_w(offs_t offset, uint8_t data)
 {
 	m_pf2_videoram[offset] = data;
 	m_bg_tilemap->mark_tile_dirty(offset & 0xbff);
 }
 
-WRITE8_MEMBER(hcastle_state::hcastle_gfxbank_w)
+void hcastle_state::hcastle_gfxbank_w(uint8_t data)
 {
 	m_gfx_bank = data;
 }
 
-READ8_MEMBER(hcastle_state::hcastle_gfxbank_r)
+uint8_t hcastle_state::hcastle_gfxbank_r()
 {
 	return m_gfx_bank;
 }
 
-WRITE8_MEMBER(hcastle_state::hcastle_pf1_control_w)
+void hcastle_state::hcastle_pf1_control_w(offs_t offset, uint8_t data)
 {
 	if (offset == 3)
 	{
@@ -159,10 +154,10 @@ WRITE8_MEMBER(hcastle_state::hcastle_pf1_control_w)
 	{
 		m_fg_tilemap->set_flip((data & 0x08) ? (TILEMAP_FLIPY | TILEMAP_FLIPX) : 0);
 	}
-	m_k007121_1->ctrl_w(space, offset, data);
+	m_k007121_1->ctrl_w(offset, data);
 }
 
-WRITE8_MEMBER(hcastle_state::hcastle_pf2_control_w)
+void hcastle_state::hcastle_pf2_control_w(offs_t offset, uint8_t data)
 {
 	if (offset == 3)
 	{
@@ -175,7 +170,7 @@ WRITE8_MEMBER(hcastle_state::hcastle_pf2_control_w)
 	{
 		m_bg_tilemap->set_flip((data & 0x08) ? (TILEMAP_FLIPY | TILEMAP_FLIPX) : 0);
 	}
-	m_k007121_2->ctrl_w(space, offset, data);
+	m_k007121_2->ctrl_w(offset, data);
 }
 
 /*****************************************************************************/

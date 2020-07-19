@@ -37,7 +37,6 @@ void msm5232_device::device_start()
 	m_stream = machine().sound().stream_alloc(*this, 0, 11, rate);
 
 	/* register with the save state system */
-	machine().save().register_postload(save_prepost_delegate(FUNC(msm5232_device::postload), this));
 	save_item(NAME(m_EN_out16));
 	save_item(NAME(m_EN_out8));
 	save_item(NAME(m_EN_out4));
@@ -81,12 +80,10 @@ void msm5232_device::device_start()
 
 void msm5232_device::device_reset()
 {
-	int i;
-
-	for (i=0; i<8; i++)
+	for (int i=0; i<8; i++)
 	{
-		write(machine().dummy_space(), i, 0x80);
-		write(machine().dummy_space(), i, 0x00);
+		write(i, 0x80);
+		write(i, 0x00);
 	}
 	m_noise_cnt     = 0;
 	m_noise_rng     = 1;
@@ -342,7 +339,7 @@ void msm5232_device::init(int clock, int rate)
 }
 
 
-WRITE8_MEMBER( msm5232_device::write )
+void msm5232_device::write(offs_t offset, uint8_t data)
 {
 	if (offset > 0x0d)
 		return;
@@ -709,7 +706,7 @@ void msm5232_device::TG_group_advance(int groupidx)
 
 
 /* MAME Interface */
-void msm5232_device::postload()
+void msm5232_device::device_post_load()
 {
 	init_tables();
 }

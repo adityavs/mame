@@ -30,10 +30,10 @@ public:
 	}
 
 	// device interface
-	DECLARE_WRITE8_MEMBER(control_write);
-	DECLARE_READ8_MEMBER(control_read);
-	DECLARE_WRITE8_MEMBER(data_write);
-	DECLARE_READ8_MEMBER(data_read);
+	void control_write(uint8_t data);
+	uint8_t control_read();
+	void data_write(uint8_t data);
+	uint8_t data_read();
 
 	uint32_t screen_update(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
 
@@ -64,8 +64,5 @@ private:
 
 // device type definition
 DECLARE_DEVICE_TYPE(T6A04, t6a04_device)
-
-#define MCFG_T6A04_SIZE(_width, _height) \
-	downcast<t6a04_device &>(*device).set_size(_width, _height);
 
 #endif // MAME_VIDEO_T6A04_H

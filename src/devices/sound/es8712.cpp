@@ -11,7 +11,7 @@
  *  Current implementation is based from :
  *  gcpinbal.cpp, by David Graves & R. Belmont.
  *  splitted by cam900
- * 
+ *
  *  It seems that the ES8712 is actually a programmable counter which can stream
  *  ADPCM samples when hooked up to a ROM and a M5205 or M6585 (whose VCK signal
  *  can drive the counter). Neither of these seem to be used in conjunction with
@@ -39,7 +39,7 @@ DEFINE_DEVICE_TYPE(ES8712, es8712_device, "es8712", "Excellent Systems ES8712 So
 
 es8712_device::es8712_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock)
 	: device_t(mconfig, ES8712, tag, owner, clock)
-	, device_rom_interface(mconfig, *this, 20) // TODO : 20 address bits?
+	, device_rom_interface(mconfig, *this)
 	, m_adpcm_select(*this, "adpcm_select")
 	, m_msm(*this, finder_base::DUMMY_TAG)
 	, m_reset_handler(*this)
@@ -57,10 +57,11 @@ es8712_device::es8712_device(const machine_config &mconfig, const char *tag, dev
 //  configuration addiitons
 //-------------------------------------------------
 
-MACHINE_CONFIG_START(es8712_device::device_add_mconfig)
-	MCFG_DEVICE_ADD("adpcm_select", HCT157, 0) // TODO : gcpinbal case, differs per games?
-	MCFG_74157_OUT_CB(WRITE8(es8712_device, msm_w))
-MACHINE_CONFIG_END
+void es8712_device::device_add_mconfig(machine_config &config)
+{
+	HCT157(config, m_adpcm_select, 0); // TODO : gcpinbal case, differs per games?
+	m_adpcm_select->out_callback().set(FUNC(es8712_device::msm_w));
+}
 
 
 //-------------------------------------------------
@@ -176,7 +177,7 @@ void es8712_device::play()
  *
 ***********************************************************************************************/
 
-WRITE8_MEMBER(es8712_device::write)
+void es8712_device::write(offs_t offset, uint8_t data)
 {
 	switch (offset)
 	{
@@ -199,7 +200,7 @@ WRITE8_MEMBER(es8712_device::write)
 	m_start &= 0xfffff; m_end &= 0xfffff;
 }
 
-READ8_MEMBER(es8712_device::read)
+uint8_t es8712_device::read(offs_t offset)
 {
 	// busy state (other bits unknown)
 	if (offset == 0)
@@ -208,12 +209,12 @@ READ8_MEMBER(es8712_device::read)
 	return 0;
 }
 
-WRITE8_MEMBER(es8712_device::msm_w)
+void es8712_device::msm_w(offs_t offset, uint8_t data)
 {
 	m_msm_write_cb(offset, data);
 }
 
-WRITE_LINE_MEMBER(es8712_device::msm_int)
+void es8712_device::msm_int(int state)
 {
 	if (!state || !m_playing)
 		return;

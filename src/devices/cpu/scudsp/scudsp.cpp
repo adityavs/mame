@@ -340,12 +340,12 @@ uint32_t scudsp_cpu_device::scudsp_get_mem_source_dma( uint32_t memcode, uint32_
 }
 
 
-READ32_MEMBER( scudsp_cpu_device::program_control_r )
+uint32_t scudsp_cpu_device::program_control_r()
 {
 	return (m_pc & 0xff) | (m_flags & FLAGS_MASK);
 }
 
-WRITE32_MEMBER( scudsp_cpu_device::program_control_w )
+void scudsp_cpu_device::program_control_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	uint32_t oldval, newval;
 
@@ -362,13 +362,13 @@ WRITE32_MEMBER( scudsp_cpu_device::program_control_w )
 	set_input_line(INPUT_LINE_RESET, (EXF) ? CLEAR_LINE : ASSERT_LINE);
 }
 
-WRITE32_MEMBER( scudsp_cpu_device::program_w )
+void scudsp_cpu_device::program_w(uint32_t data)
 {
 	//printf("%02x %08x PRG\n",m_pc,data);
 	scudsp_writeop(m_pc++, data);
 }
 
-WRITE32_MEMBER( scudsp_cpu_device::ram_address_control_w )
+void scudsp_cpu_device::ram_address_control_w(uint32_t data)
 {
 	//printf("%02x %08x PRG\n",m_pc,data);
 	m_ra = data & 0xff;
@@ -382,7 +382,7 @@ WRITE32_MEMBER( scudsp_cpu_device::ram_address_control_w )
 	}
 }
 
-READ32_MEMBER( scudsp_cpu_device::ram_address_r )
+uint32_t scudsp_cpu_device::ram_address_r()
 {
 	uint32_t data;
 
@@ -391,7 +391,7 @@ READ32_MEMBER( scudsp_cpu_device::ram_address_r )
 	return data;
 }
 
-WRITE32_MEMBER( scudsp_cpu_device::ram_address_w )
+void scudsp_cpu_device::ram_address_w(uint32_t data)
 {
 	scudsp_set_dest_mem_reg( (m_ra & 0xc0) >> 6, data );
 }
@@ -841,7 +841,7 @@ void scudsp_cpu_device::execute_run()
 	{
 		m_update_mul = 0;
 
-		debugger_instruction_hook(this, m_pc);
+		debugger_instruction_hook(m_pc);
 
 		if ( m_delay )
 		{
@@ -993,7 +993,7 @@ void scudsp_cpu_device::device_start()
 	m_in_dma_cb.resolve_safe(0);
 	m_out_dma_cb.resolve_safe();
 
-	m_icountptr = &m_icount;
+	set_icountptr(m_icount);
 }
 
 void scudsp_cpu_device::device_reset()
@@ -1010,13 +1010,15 @@ void scudsp_cpu_device::execute_set_input(int irqline, int state)
 	}
 }
 
-ADDRESS_MAP_START(scudsp_cpu_device::program_map)
-	AM_RANGE(0x00, 0xff) AM_RAM
-ADDRESS_MAP_END
+void scudsp_cpu_device::program_map(address_map &map)
+{
+	map(0x00, 0xff).ram();
+}
 
-ADDRESS_MAP_START(scudsp_cpu_device::data_map)
-	AM_RANGE(0x00, 0xff) AM_RAM
-ADDRESS_MAP_END
+void scudsp_cpu_device::data_map(address_map &map)
+{
+	map(0x00, 0xff).ram();
+}
 
 scudsp_cpu_device::scudsp_cpu_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock)
 	: cpu_device(mconfig, SCUDSP, tag, owner, clock)
@@ -1051,7 +1053,7 @@ void scudsp_cpu_device::state_string_export(const device_state_entry &entry, std
 }
 
 
-util::disasm_interface *scudsp_cpu_device::create_disassembler()
+std::unique_ptr<util::disasm_interface> scudsp_cpu_device::create_disassembler()
 {
-	return new scudsp_disassembler;
+	return std::make_unique<scudsp_disassembler>();
 }

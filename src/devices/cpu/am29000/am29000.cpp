@@ -108,7 +108,7 @@ am29000_cpu_device::am29000_cpu_device(const machine_config &mconfig, const char
 	m_fpe = 0;
 	m_inte = 0;
 	m_fps = 0;
-	memset( m_exception_queue, 0, sizeof( m_exception_queue) );;
+	memset( m_exception_queue, 0, sizeof( m_exception_queue) );
 	m_irq_active = 0;
 	m_irq_lines = 0;
 	m_exec_ir = 0;
@@ -130,11 +130,12 @@ device_memory_interface::space_config_vector am29000_cpu_device::memory_space_co
 
 void am29000_cpu_device::device_start()
 {
-	m_program = &space(AS_PROGRAM);
-	m_direct = m_program->direct<0>();
-	m_data = &space(AS_DATA);
-	m_datadirect = m_data->direct<0>();
-	m_io = &space(AS_IO);
+	space(AS_PROGRAM).cache(m_cache);
+	space(AS_PROGRAM).specific(m_program);
+	space(AS_DATA).cache(m_datacache);
+	space(AS_DATA).specific(m_data);
+	space(AS_IO).specific(m_io);
+
 	m_cfg = (PRL_AM29000 | PRL_REV_D) << CFG_PRL_SHIFT;
 
 	/* Register state for saving */
@@ -409,7 +410,7 @@ void am29000_cpu_device::device_start()
 	state_add(STATE_GENPCBASE, "CURPC", m_pc).callimport().noshow();
 	state_add(STATE_GENFLAGS, "CURFLAGS", m_alu).formatstr("%13s").noshow();
 
-	m_icountptr = &m_icount;
+	set_icountptr(m_icount);
 }
 
 
@@ -511,7 +512,7 @@ uint32_t am29000_cpu_device::read_program_word(uint32_t address)
 {
 	/* TODO: ROM enable? */
 	if (m_cps & CPS_PI || m_cps & CPS_RE)
-		return m_direct->read_dword(address);
+		return m_cache.read_dword(address);
 	else
 	{
 		fatalerror("Am29000 instruction MMU translation enabled!\n");
@@ -658,7 +659,7 @@ void am29000_cpu_device::execute_run()
 			if (m_cfg & CFG_VF)
 			{
 				uint32_t vaddr = m_vab | m_exception_queue[0] * 4;
-				uint32_t vect = m_datadirect->read_dword(vaddr);
+				uint32_t vect = m_datacache.read_dword(vaddr);
 
 				m_pc = vect & ~3;
 				m_next_pc = m_pc;
@@ -673,7 +674,7 @@ void am29000_cpu_device::execute_run()
 		}
 
 		if (call_debugger)
-			debugger_instruction_hook(this, m_pc);
+			debugger_instruction_hook(m_pc);
 
 		fetch_decode();
 
@@ -703,7 +704,7 @@ void am29000_cpu_device::execute_set_input(int inputnum, int state)
 	// TODO : CHECK IRQs
 }
 
-util::disasm_interface *am29000_cpu_device::create_disassembler()
+std::unique_ptr<util::disasm_interface> am29000_cpu_device::create_disassembler()
 {
-	return new am29000_disassembler;
+	return std::make_unique<am29000_disassembler>();
 }

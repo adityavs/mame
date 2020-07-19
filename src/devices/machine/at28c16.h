@@ -15,14 +15,6 @@
 
 
 //**************************************************************************
-//  INTERFACE CONFIGURATION MACROS
-//**************************************************************************
-
-#define MCFG_AT28C16_ADD( _tag, _interface ) \
-	MCFG_DEVICE_ADD( _tag, AT28C16, 0 )
-
-
-//**************************************************************************
 //  TYPE DEFINITIONS
 //**************************************************************************
 
@@ -37,8 +29,8 @@ public:
 	// construction/destruction
 	at28c16_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
 
-	DECLARE_WRITE8_MEMBER( write );
-	DECLARE_READ8_MEMBER( read );
+	void write(offs_t offset, uint8_t data);
+	uint8_t read(offs_t offset);
 
 protected:
 	// device-level overrides

@@ -32,14 +32,6 @@
 
 
 //**************************************************************************
-//  INTERFACE CONFIGURATION MACROS
-//**************************************************************************
-
-#define MCFG_SEGA_SCU_ADD(tag) \
-		MCFG_DEVICE_ADD((tag), SEGA_SCU, (0))
-
-
-//**************************************************************************
 //  TYPE DEFINITIONS
 //**************************************************************************
 
@@ -62,7 +54,7 @@ public:
 	DECLARE_WRITE_LINE_MEMBER(sound_req_w);
 	DECLARE_WRITE_LINE_MEMBER(smpc_irq_w);
 
-	void set_hostcpu(const char *cputag) { m_hostcpu_tag = cputag; }
+	template <typename T> void set_hostcpu(T &&tag) { m_hostcpu.set_tag(std::forward<T>(tag)); }
 
 protected:
 	// device-level overrides
@@ -91,8 +83,7 @@ private:
 	bool m_t1md;
 	bool m_tenb;
 
-	const char *m_hostcpu_tag;
-	sh2_device *m_hostcpu;
+	required_device<sh2_device> m_hostcpu;
 	address_space *m_hostspace;
 	void test_pending_irqs();
 
@@ -119,28 +110,28 @@ private:
 	void dma_start_factor_ack(uint8_t event);
 
 	DECLARE_WRITE_LINE_MEMBER(scudsp_end_w);
-	DECLARE_READ16_MEMBER(scudsp_dma_r);
-	DECLARE_WRITE16_MEMBER(scudsp_dma_w);
+	uint16_t scudsp_dma_r(offs_t offset, uint16_t mem_mask = ~0);
+	void scudsp_dma_w(offs_t offset, uint16_t data, uint16_t mem_mask = ~0);
 
 	// DMA
-	DECLARE_READ32_MEMBER(dma_lv0_r);
-	DECLARE_WRITE32_MEMBER(dma_lv0_w);
-	DECLARE_READ32_MEMBER(dma_lv1_r);
-	DECLARE_WRITE32_MEMBER(dma_lv1_w);
-	DECLARE_READ32_MEMBER(dma_lv2_r);
-	DECLARE_WRITE32_MEMBER(dma_lv2_w);
-	DECLARE_READ32_MEMBER(dma_status_r);
+	uint32_t dma_lv0_r(offs_t offset);
+	void dma_lv0_w(offs_t offset, uint32_t data);
+	uint32_t dma_lv1_r(offs_t offset);
+	void dma_lv1_w(offs_t offset, uint32_t data);
+	uint32_t dma_lv2_r(offs_t offset);
+	void dma_lv2_w(offs_t offset, uint32_t data);
+	uint32_t dma_status_r();
 
 	// Timers
-	DECLARE_WRITE32_MEMBER(t0_compare_w);
-	DECLARE_WRITE32_MEMBER(t1_setdata_w);
-	DECLARE_WRITE16_MEMBER(t1_mode_w);
+	void t0_compare_w(offs_t offset, uint32_t data, uint32_t mem_mask = ~0);
+	void t1_setdata_w(offs_t offset, uint32_t data, uint32_t mem_mask = ~0);
+	void t1_mode_w(uint16_t data);
 	// Interrupt
-	DECLARE_READ32_MEMBER(irq_mask_r);
-	DECLARE_READ32_MEMBER(irq_status_r);
-	DECLARE_WRITE32_MEMBER(irq_mask_w);
-	DECLARE_WRITE32_MEMBER(irq_status_w);
-	DECLARE_READ32_MEMBER(version_r);
+	uint32_t irq_mask_r();
+	uint32_t irq_status_r();
+	void irq_mask_w(offs_t offset, uint32_t data, uint32_t mem_mask = ~0);
+	void irq_status_w(offs_t offset, uint32_t data, uint32_t mem_mask = ~0);
+	uint32_t version_r();
 };
 
 

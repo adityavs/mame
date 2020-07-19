@@ -9,7 +9,8 @@
 #include "machine/z80ctc.h"
 #include "cpu/z80/z80.h"
 #include "machine/upd765.h"
-#include "machine/ataintf.h"
+#include "bus/ata/ataintf.h"
+#include "imagedev/floppy.h"
 #include "imagedev/harddriv.h"
 
 
@@ -46,9 +47,11 @@ protected:
 	virtual void io_read(offs_t offset, uint8_t &data) override;
 	virtual void io_write(offs_t offset, uint8_t data) override;
 
-	DECLARE_READ8_MEMBER(hw_input_gate_r);
-	DECLARE_WRITE8_MEMBER(fdd_select_w);
-	DECLARE_WRITE8_MEMBER(hw_terminal_count_w);
+	uint8_t hw_input_gate_r();
+	void fdd_select_w(uint8_t data);
+	void hw_terminal_count_w(uint8_t data);
+
+	required_device<z80_device> m_cpu;
 
 private:
 	DECLARE_FLOPPY_FORMATS( floppy_formats );
@@ -60,7 +63,6 @@ private:
 
 	static const device_timer_id TIMER_RESET = 0;
 
-	required_device<cpu_device> m_cpu;
 	required_device<upd765a_device> m_fdc;
 	required_device<floppy_connector> m_floppy0;
 	required_device<floppy_connector> m_floppy1;
@@ -104,8 +106,8 @@ private:
 	uint16_t              m_ata_data;
 	int                 m_lh;
 
-	DECLARE_READ8_MEMBER(gide_r);
-	DECLARE_WRITE8_MEMBER(gide_w);
+	uint8_t gide_r(offs_t offset);
+	void gide_w(offs_t offset, uint8_t data);
 
 	void kc_d004_gide_io(address_map &map);
 };

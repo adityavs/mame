@@ -60,23 +60,24 @@
     Normal address starts with 0xa0000000 to enable auto-advance and 8MB ROM addressing mode.
 */
 
-ADDRESS_MAP_START(naomi_board::submap)
-	AM_RANGE(0x00, 0xff) AM_READ(default_r)
+void naomi_board::submap(address_map &map)
+{
+	map(0x00, 0xff).r(FUNC(naomi_board::default_r));
 
-	AM_RANGE(0x00, 0x01) AM_WRITE(rom_offseth_w)
-	AM_RANGE(0x02, 0x03) AM_WRITE(rom_offsetl_w)
-	AM_RANGE(0x04, 0x05) AM_READWRITE(rom_data_r, rom_data_w)
-	AM_RANGE(0x06, 0x07) AM_WRITE(dma_offseth_w)
-	AM_RANGE(0x08, 0x09) AM_WRITE(dma_offsetl_w)
-	AM_RANGE(0x0a, 0x0b) AM_WRITE(dma_count_w)
-	AM_RANGE(0x3c, 0x3d) AM_WRITE(boardid_w)
-	AM_RANGE(0x3e, 0x3f) AM_READ(boardid_r)
-ADDRESS_MAP_END
+	map(0x00, 0x01).w(FUNC(naomi_board::rom_offseth_w));
+	map(0x02, 0x03).w(FUNC(naomi_board::rom_offsetl_w));
+	map(0x04, 0x05).rw(FUNC(naomi_board::rom_data_r), FUNC(naomi_board::rom_data_w));
+	map(0x06, 0x07).w(FUNC(naomi_board::dma_offseth_w));
+	map(0x08, 0x09).w(FUNC(naomi_board::dma_offsetl_w));
+	map(0x0a, 0x0b).w(FUNC(naomi_board::dma_count_w));
+	map(0x3c, 0x3d).w(FUNC(naomi_board::boardid_w));
+	map(0x3e, 0x3f).r(FUNC(naomi_board::boardid_r));
+}
 
 naomi_board::naomi_board(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, uint32_t clock)
-	: naomi_g1_device(mconfig, type, tag, owner, clock)
+	: naomi_g1_device(mconfig, type, tag, owner, clock),
+	eeprom(*this, finder_base::DUMMY_TAG)
 {
-	eeprom_tag = nullptr;
 }
 
 void naomi_board::device_start()
@@ -89,11 +90,6 @@ void naomi_board::device_start()
 	save_item(NAME(dma_cur_offset));
 	save_item(NAME(pio_ready));
 	save_item(NAME(dma_ready));
-
-	if (eeprom_tag != nullptr)
-		eeprom = owner()->subdevice<x76f100_device>(eeprom_tag);
-	else
-		eeprom = nullptr;
 }
 
 void naomi_board::device_reset()
@@ -134,19 +130,19 @@ void naomi_board::dma_advance(uint32_t size)
 	board_advance(size);
 }
 
-WRITE16_MEMBER(naomi_board::rom_offseth_w)
+void naomi_board::rom_offseth_w(uint16_t data)
 {
 	rom_offset = (rom_offset & 0x0000ffff) | (data << 16);
 	pio_ready = false;
 }
 
-WRITE16_MEMBER(naomi_board::rom_offsetl_w)
+void naomi_board::rom_offsetl_w(uint16_t data)
 {
 	rom_offset = (rom_offset & 0xffff0000) | data;
 	pio_ready = false;
 }
 
-READ16_MEMBER(naomi_board::rom_data_r)
+uint16_t naomi_board::rom_data_r()
 {
 	if(!pio_ready) {
 		board_setup_address(rom_offset, false);
@@ -164,7 +160,7 @@ READ16_MEMBER(naomi_board::rom_data_r)
 	return res;
 }
 
-WRITE16_MEMBER(naomi_board::rom_data_w)
+void naomi_board::rom_data_w(uint16_t data)
 {
 	board_write(rom_offset, data);
 
@@ -172,24 +168,24 @@ WRITE16_MEMBER(naomi_board::rom_data_w)
 		rom_offset += 2;
 }
 
-WRITE16_MEMBER(naomi_board::dma_offseth_w)
+void naomi_board::dma_offseth_w(uint16_t data)
 {
 	dma_offset = (dma_offset & 0x0000ffff) | (data << 16);
 	dma_ready = false;
 }
 
-WRITE16_MEMBER(naomi_board::dma_offsetl_w)
+void naomi_board::dma_offsetl_w(uint16_t data)
 {
 	dma_offset = (dma_offset & 0xffff0000) | data;
 	dma_ready = false;
 }
 
-WRITE16_MEMBER(naomi_board::dma_count_w)
+void naomi_board::dma_count_w(uint16_t data)
 {
 	dma_count = data;
 }
 
-WRITE16_MEMBER(naomi_board::boardid_w)
+void naomi_board::boardid_w(uint16_t data)
 {
 	eeprom->write_cs((data >> 2) & 1);
 	eeprom->write_rst((data >> 3) & 1);
@@ -197,12 +193,12 @@ WRITE16_MEMBER(naomi_board::boardid_w)
 	eeprom->write_sda((data >> 0) & 1);
 }
 
-READ16_MEMBER(naomi_board::boardid_r)
+uint16_t naomi_board::boardid_r()
 {
 	return eeprom->read_sda() << 15;
 }
 
-READ16_MEMBER(naomi_board::default_r)
+uint16_t naomi_board::default_r(offs_t offset)
 {
 	logerror("NAOMIBD: unmapped read at %02x\n", offset);
 	return 0xffff;

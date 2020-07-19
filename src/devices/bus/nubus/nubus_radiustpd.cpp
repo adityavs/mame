@@ -37,13 +37,12 @@ DEFINE_DEVICE_TYPE(NUBUS_RADIUSTPD, nubus_radiustpd_device, "nb_rtpd", "Radius T
 //  device_add_mconfig - add device configuration
 //-------------------------------------------------
 
-MACHINE_CONFIG_START(nubus_radiustpd_device::device_add_mconfig)
-	MCFG_SCREEN_ADD( RADIUSTPD_SCREEN_NAME, RASTER)
-	MCFG_SCREEN_UPDATE_DEVICE(DEVICE_SELF, nubus_radiustpd_device, screen_update)
-	MCFG_SCREEN_SIZE(1280, 960)
-	MCFG_SCREEN_REFRESH_RATE(70)
-	MCFG_SCREEN_VISIBLE_AREA(0, 1152-1, 0, 880-1)
-MACHINE_CONFIG_END
+void nubus_radiustpd_device::device_add_mconfig(machine_config &config)
+{
+	screen_device &screen(SCREEN(config, RADIUSTPD_SCREEN_NAME, SCREEN_TYPE_RASTER));
+	screen.set_screen_update(FUNC(nubus_radiustpd_device::screen_update));
+	screen.set_raw(99.522_MHz_XTAL, 1536, 0, 1152, 900, 0, 880); // 64.79 kHz horizontal, 72 Hz refresh
+}
 
 //-------------------------------------------------
 //  rom_region - device-specific ROM region
@@ -73,10 +72,9 @@ nubus_radiustpd_device::nubus_radiustpd_device(const machine_config &mconfig, de
 	device_t(mconfig, type, tag, owner, clock),
 	device_video_interface(mconfig, *this),
 	device_nubus_card_interface(mconfig, *this),
-	m_vram32(nullptr), m_mode(0), m_vbl_disable(0), m_toggle(0), m_count(0), m_clutoffs(0), m_timer(nullptr),
-	m_assembled_tag(util::string_format("%s:%s", tag, RADIUSTPD_SCREEN_NAME))
+	m_vram32(nullptr), m_mode(0), m_vbl_disable(0), m_toggle(0), m_count(0), m_clutoffs(0), m_timer(nullptr)
 {
-	set_screen(m_assembled_tag.c_str());
+	set_screen(*this, RADIUSTPD_SCREEN_NAME);
 }
 
 //-------------------------------------------------
@@ -96,10 +94,10 @@ void nubus_radiustpd_device::device_start()
 	m_vram.resize(VRAM_SIZE);
 	m_vram32 = (uint32_t *)&m_vram[0];
 
-	nubus().install_device(slotspace, slotspace+VRAM_SIZE-1, read32_delegate(FUNC(nubus_radiustpd_device::vram_r), this), write32_delegate(FUNC(nubus_radiustpd_device::vram_w), this));
-	nubus().install_device(slotspace+0x900000, slotspace+VRAM_SIZE-1+0x900000, read32_delegate(FUNC(nubus_radiustpd_device::vram_r), this), write32_delegate(FUNC(nubus_radiustpd_device::vram_w), this));
-	nubus().install_device(slotspace+0x80000, slotspace+0xeffff, read32_delegate(FUNC(nubus_radiustpd_device::radiustpd_r), this), write32_delegate(FUNC(nubus_radiustpd_device::radiustpd_w), this));
-	nubus().install_device(slotspace+0x980000, slotspace+0x9effff, read32_delegate(FUNC(nubus_radiustpd_device::radiustpd_r), this), write32_delegate(FUNC(nubus_radiustpd_device::radiustpd_w), this));
+	nubus().install_device(slotspace, slotspace+VRAM_SIZE-1, read32s_delegate(*this, FUNC(nubus_radiustpd_device::vram_r)), write32s_delegate(*this, FUNC(nubus_radiustpd_device::vram_w)));
+	nubus().install_device(slotspace+0x900000, slotspace+VRAM_SIZE-1+0x900000, read32s_delegate(*this, FUNC(nubus_radiustpd_device::vram_r)), write32s_delegate(*this, FUNC(nubus_radiustpd_device::vram_w)));
+	nubus().install_device(slotspace+0x80000, slotspace+0xeffff, read32s_delegate(*this, FUNC(nubus_radiustpd_device::radiustpd_r)), write32s_delegate(*this, FUNC(nubus_radiustpd_device::radiustpd_w)));
+	nubus().install_device(slotspace+0x980000, slotspace+0x9effff, read32s_delegate(*this, FUNC(nubus_radiustpd_device::radiustpd_r)), write32s_delegate(*this, FUNC(nubus_radiustpd_device::radiustpd_w)));
 
 	m_timer = timer_alloc(0, nullptr);
 	m_timer->adjust(screen().time_until_pos(479, 0), 0);
@@ -168,12 +166,12 @@ uint32_t nubus_radiustpd_device::screen_update(screen_device &screen, bitmap_rgb
 	return 0;
 }
 
-WRITE32_MEMBER( nubus_radiustpd_device::radiustpd_w )
+void nubus_radiustpd_device::radiustpd_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 //  printf("TPD: write %08x to %x, mask %08x\n", data, offset, mem_mask);
 }
 
-READ32_MEMBER( nubus_radiustpd_device::radiustpd_r )
+uint32_t nubus_radiustpd_device::radiustpd_r(offs_t offset, uint32_t mem_mask)
 {
 //  printf("TPD: read @ %x, mask %08x\n", offset, mem_mask);
 
@@ -196,13 +194,13 @@ READ32_MEMBER( nubus_radiustpd_device::radiustpd_r )
 	return 0;
 }
 
-WRITE32_MEMBER( nubus_radiustpd_device::vram_w )
+void nubus_radiustpd_device::vram_w(offs_t offset, uint32_t data, uint32_t mem_mask)
 {
 	data ^= 0xffffffff;
 	COMBINE_DATA(&m_vram32[offset]);
 }
 
-READ32_MEMBER( nubus_radiustpd_device::vram_r )
+uint32_t nubus_radiustpd_device::vram_r(offs_t offset, uint32_t mem_mask)
 {
 	return m_vram32[offset] ^ 0xffffffff;
 }
